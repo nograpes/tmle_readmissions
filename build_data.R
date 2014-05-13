@@ -8,7 +8,7 @@ options(mc.cores=12)
 
 # Make a simple model of readmissions:
 setwd('~/repo/thesis/code/tmle')
-print('Data source.')
+# print('Data source.')
 source('~/repo/thesis/code/notebook/data_source.R')
 
 # Dump directory

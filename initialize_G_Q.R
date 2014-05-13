@@ -1,20 +1,18 @@
 suppressPackageStartupMessages(library(bigrf))
 suppressPackageStartupMessages(library(doParallel))
 registerDoParallel(cores=12)
-options(mc.cores=12)
 
-dump.dir<-'data_dump'
-setwd('~/repo/thesis/code/tmle')
-object.file<-'heart.failure.object'
-prefix<-gsub('object$','',object.file)
-load(paste(dump.dir,object.file,sep='/'))
+object.file<-commandArgs(trailingOnly=TRUE)[1]
+output.file<-commandArgs(trailingOnly=TRUE)[2]
+load(object.file)
+
+file.name.sub<-function(target,pattern,sub) 
+   file.path(dirname(target),sub(pattern,sub,basename(target)))
 
 # I'm not sure why this isn't saved. I tested it, and it should have been.
 hosps<-c(levels(disease.df$hosp))
 
 # Time for some quick data reduction!
-# If I don't do this, then the cross-validation for lambda becomes too much.
-# 5000 variables are exactly zero!
 disease.big.matrix<-disease.big.matrix[,colSums(disease.big.matrix)>30]
 testo<-as.data.frame(disease.big.matrix)
 testo<-testo[-match(hosps[-1],names(testo))]
@@ -29,10 +27,11 @@ system.time(
                               y=disease.df$hosp, 
                               ntrees = ntrees, 
                               cachepath='~',
-                              trace = 1)
+                              trace = FALSE)
 )
 
-save(rf.predict.exposure,file=paste(dump.dir,'rf.predict.exposure.object',sep='/'))
+
+save(rf.predict.exposure,file=file.name.sub(object.file,'disease_','rf_predict_exposure_'))
 
 set.seed(1)
 system.time(
@@ -40,7 +39,7 @@ system.time(
                              y=as.factor(disease.df$day_30_readmit), 
                              ntrees = ntrees, 
                              cachepath='~',
-                             trace = 1)
+                             trace = FALSE)
 )
 
-save(rf.predict.outcome,file=paste(dump.dir,'rf.predict.outcome.object',sep='/'))
+save(rf.predict.exposure,file=file.name.sub(object.file,'disease_','rf_predict_outcome_'))

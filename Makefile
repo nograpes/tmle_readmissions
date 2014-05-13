@@ -1,46 +1,37 @@
-DATA_CLEAN_DIR=~/repo/thesis/code/tmle
+DATA_CLEAN_DIR=.
 DATA_DUMP_DIR=${DATA_CLEAN_DIR}/data_dump
-DB_QUERY=psql --set ON_ERROR_STOP=on -q -d IrisQuebec -f
-DB_QUERY_COMMAND=psql --set ON_ERROR_STOP=on -q -d IrisQuebec -c
+DISEASE_SUBSET_DIR=${DATA_CLEAN_DIR}/disease_subsets
 RSCRIPT=/usr/bin/Rscript --vanilla
+DISEASES=$(wildcard $(DISEASE_SUBSET_DIR)/*)
+DISEASES_NO_PATH=$(subst $(DISEASE_SUBSET_DIR)/,,$(DISEASES))
 
-all : tables.object
+# Without this line, all intermediate files are deleted after make finishes.
+# Unfortunately, all targets of implicit rules are intermediate.
+# So after the Q model is generated, if Q* fails, then the Q model is deleted.
+# Which is unfortunate because it takes two hours for Q to be generated.
+.SECONDARY:
 
-tables.object : ${DATA_DUMP_DIR}/heart.failure.uncombined.object ${DATA_DUMP_DIR}/ami.combined.object ${DATA_DUMP_DIR}/pneumonia.combined.object ${DATA_CLEAN_DIR}/third.R
-${RSCRIPT} ${DATA_CLEAN_DIR}/third.R 
+all: $(DISEASES_NO_PATH:%=${DATA_DUMP_DIR}/rf_Q_star_model_%.object)
 
-${DATA_DUMP_DIR}/heart.failure.combined.object : ${DATA_DUMP_DIR}/heart.failure.uncombined.object ${DATA_CLEAN_DIR}/second.R
-${RSCRIPT} ${DATA_CLEAN_DIR}/second.R heart.failure.object
+${DATA_DUMP_DIR}/rf_Q_star_model_%.object : ${DATA_DUMP_DIR}/rf_G_model_%.object ${DATA_DUMP_DIR}/rf_Q_model_%.object ${DATA_DUMP_DIR}/disease_%.object  ${DATA_CLEAN_DIR}/build_rf_Q_star_model.R 
+	${RSCRIPT} ${DATA_CLEAN_DIR}/build_rf_Q_star_model.R ${DATA_DUMP_DIR}/rf_G_model_$*.object ${DATA_DUMP_DIR}/rf_Q_model_$*.object ${DATA_DUMP_DIR}/disease_$*.object $@
+	
+${DATA_DUMP_DIR}/rf_Q_model_%.object : ${DATA_DUMP_DIR}/disease_%.object ${DATA_CLEAN_DIR}/build_rf_Q_model.R
+	${RSCRIPT} ${DATA_CLEAN_DIR}/build_rf_Q_model.R $< $@
 
-${DATA_DUMP_DIR}/ami.combined.object : ${DATA_DUMP_DIR}/ami.uncombined.object ${DATA_CLEAN_DIR}/second.R
-${RSCRIPT} ${DATA_CLEAN_DIR}/second.R ami.object
+${DATA_DUMP_DIR}/rf_G_model_%.object : ${DATA_DUMP_DIR}/disease_%.object ${DATA_CLEAN_DIR}/build_rf_G_model.R
+	${RSCRIPT} ${DATA_CLEAN_DIR}/build_rf_G_model.R $< $@
 
-${DATA_DUMP_DIR}/pneumonia.combined.object : ${DATA_DUMP_DIR}/pneumonia.uncombined.object ${DATA_CLEAN_DIR}/second.R
-${RSCRIPT} ${DATA_CLEAN_DIR}/second.R pneumonia.object
+# This idiom is the only way I know to have a pattern depend on a shell wildcard
+# where you need to pass the shell wildcard as an argument, but not the other dependencies.
+${DATA_DUMP_DIR}/disease_%.object : ${DISEASES}
+	${RSCRIPT} ${DATA_CLEAN_DIR}/cut.R $^
 
-${DATA_DUMP_DIR}/heart.failure.uncombined.object : ${DATA_DUMP_DIR}/heart.failure.object ${DATA_CLEAN_DIR}/first.R
-${RSCRIPT} ${DATA_CLEAN_DIR}/first.R heart.failure.object
+# Other dependencies.
+${DISEASE_SUBSET_DIR}/* : ${DATA_CLEAN_DIR}/cut.R ${DATA_DUMP_DIR}/fixed.vars.mat.object
+	touch $@
+# End of idiom
 
-${DATA_DUMP_DIR}/ami.uncombined.object : ${DATA_DUMP_DIR}/ami.object ${DATA_CLEAN_DIR}/first.R
-${RSCRIPT} ${DATA_CLEAN_DIR}/first.R ami.object
+${DATA_DUMP_DIR}/fixed.vars.mat.object : ${DATA_CLEAN_DIR}/build_data.R
+	${RSCRIPT} $< $@
 
-${DATA_DUMP_DIR}/pneumonia.uncombined.object : ${DATA_DUMP_DIR}/pneumonia.object ${DATA_CLEAN_DIR}/first.R
-${RSCRIPT} ${DATA_CLEAN_DIR}/first.R pneumonia.object
-
-# Should be cut up into the three diagnostic categories.
-${DATA_DUMP_DIR}/heart.failure.object : ${DATA_DUMP_DIR}/big.matrix.object ${DATA_CLEAN_DIR}/cut.R
-${RSCRIPT} ${DATA_CLEAN_DIR}/cut.R heart.failure
-
-# Although it actually outputs several things.
-${DATA_DUMP_DIR}/big.matrix.object : ${DATA_DUMP_DIR}/drugs.ahfs.object ${DATA_CLEAN_DIR}/big_matrix.R
-${RSCRIPT} ${DATA_CLEAN_DIR}/big_matrix.R
-
-# Build the data files.
-${DATA_DUMP_DIR}/drugs.ahfs.object : ${DATA_DUMP_DIR}/quick_tables ${DATA_CLEAN_DIR}/build_data.R
-${RSCRIPT} ${DATA_CLEAN_DIR}/build_data.R
-
-# Build the chandan_* prefix tables from aman.readmissions_top20.
-# Because SQL doesn't output a file, depend on a empty file in STAMP_DIR
-${DATA_DUMP_DIR}/quick_tables : ${DATA_CLEAN_DIR}/quick_tables.sql 
-${DB_QUERY} $<
-  touch $@
