@@ -11,6 +11,31 @@ setwd('~/repo/thesis/code/tmle')
 load(paste0('data_dump/rf_Q_star_model_',prefix,'.object')) # epsilons, Q.star.by.epsilon
 load(paste0('data_dump/disease_',prefix,'.object')) # epsilons, Q.star.by.epsilon
 
+# A little plot for the random forest:
+get.accuracy<-function(num.trees){
+  # s<-sapply(1:20,function(x) rowSums(oob.pred.mat[,1:num.trees] == x))
+  s<-extract.by.tree.num(num.trees)
+  set.seed(1) # Because tie breakage is random. This is how randomForest does it too.
+  prop.table(table(max.col(s,ties.method='random')==as.numeric(disease.df$hosp)))['TRUE']
+}
+
+acc.by.trees<-sapply(1:ncol(l[[1]]),get.accuracy)
+# plot(1-acc.by.trees,type='l') # Second degree bend around 200.
+
+# Now, let's take a look at the Q estimates.
+# get.oob.pred.by.tree(rf.predict.outcome[[1]])
+
+# get.oob.outcome.pred.by.tree<-function(tree) {
+#   in.bag<-tree@insamp!=0
+#   pred.class<-tree@trainpredclass
+#   pred.class[in.bag]<-NA
+#   pred.class
+# }
+# 
+# oob.outcome.pred.mat<-sapply(rf.predict.outcome,get.oob.outcome.pred.by.tree)
+# 
+
+
 
 crude.prob<-prop.table(table(disease.df[c('hosp','day_30_readmit')]),margin=1)
 comparison<-data.frame(crude=crude.prob[,2], Q=colMeans(all.Q.by.hosp), `Q.star`=colMeans(Q.star.by.epsilon))
