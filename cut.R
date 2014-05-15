@@ -51,21 +51,3 @@ for (path in paths){
   disease.big.matrix<-cbind(big.matrix[rows,])
   save(disease.df,disease.big.matrix,file=paste0(dump.dir,'/disease_',basename(path),'.object'))
 }
-
-# Heart failure
-# rows<-!is.na(df$admit_diag) & substring(df$admit_diag,1,3)=='428'
-# disease.df<-df[rows,]
-# disease.big.matrix<-cbind(big.matrix[rows,])
-# save(disease.df,disease.big.matrix,file=paste(dump.dir,'disease_heart_failure.object',sep='/'))
-
-# Pneumonia
-# rows<-which(!is.na(df$admit_diag) & grepl('^48[0-7].*',df$admit_diag))
-# disease.df<-df[rows,]
-# disease.big.matrix<-cbind(big.matrix[rows,])
-# save(disease.df,disease.big.matrix,file=paste(dump.dir,'disease_pneumonia.object',sep='/'))
-
-# AMI
-# rows<-which(!is.na(df$admit_diag) & grepl('^410.*',df$admit_diag))
-# disease.df<-df[rows,]
-# disease.big.matrix<-cbind(big.matrix[rows,])
-# save(disease.df,disease.big.matrix,file=paste(dump.dir,'disease_ami.object',sep='/'))
