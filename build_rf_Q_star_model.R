@@ -3,6 +3,7 @@ suppressPackageStartupMessages(library(doParallel))
 registerDoParallel(cores=12) # Register a serial backend to avoid warning.
 
 # /usr/bin/R --args data_dump/rf_G_model_heart_failure.object data_dump/rf_Q_model_heart_failure.object data_dump/disease_heart_failure.object data_dump/rf_Q_star_model_heart_failure.object
+# /usr/bin/R --args data_dump/rf_G_model_ami.object data_dump/rf_Q_model_ami.object data_dump/disease_ami.object data_dump/rf_Q_star_model_ami.object
 # setwd('~/repo/thesis/code/tmle')
 # arguments<-paste('data_dump',c('rf_G_model_pneumonia.object','rf_Q_model_pneumonia.object','disease_pneumonia.object','rf_Q_star_model_pneumonia.object'),sep='/')
 arguments<-commandArgs(trailingOnly=TRUE)
@@ -61,18 +62,22 @@ colnames(exposure.mat)<-gsub('^hosp','',colnames(exposure.mat))
 min.baseline<-min(prob.of.exposure[prob.of.exposure!=0])
 modified.prob.of.exposure<-ifelse(prob.of.exposure==0,min.baseline,prob.of.exposure)
 
+# The same for the outcome
+min.baseline<-min(prob.of.outcome[prob.of.outcome!=0])
+modified.prob.of.outcome<-ifelse(prob.of.outcome==0,min.baseline,prob.of.outcome)
+
 # I want to find one epsilon for each hospital.
 iptw <- exposure.mat  / modified.prob.of.exposure # Each column is now the (A==a)/g
 
 epsilon<-function(hospital.covariate)
-  glm(disease.df$day_30_readmit ~ 
+  glm(as.factor(disease.df$day_30_readmit) ~ 
         hospital.covariate-1, 
-      offset=qlogis(prob.of.outcome), 
+      offset=qlogis(modified.prob.of.outcome), 
       family=binomial(link=logit))$coef
 
+ 
 epsilons<-apply(iptw,2,epsilon) # The fitter complains that fitted probs of 0 or 1 occurred.
 
-Q.star.by.epsilon<-sapply(1:length(epsilons),function(x) plogis(qlogis(prob.of.outcome) + (epsilons[x]*iptw[,x])))
 Q.star.by.epsilon<-sapply(1:length(epsilons),
                           function(x) plogis(qlogis(all.Q.by.hosp[,x]) + 
                                                (epsilons[x]* (1/modified.prob.of.exposure))))
