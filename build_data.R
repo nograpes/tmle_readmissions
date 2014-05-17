@@ -1,5 +1,5 @@
 # Dump directory
-# /usr/bin/R --args ./../data_clean/data_source.R ./data_dump/fixed.vars.mat.object
+# /usr/bin/R --args ./../data_clean/data_source.R ./data_dump/fixed.vars.mat.object ./data_dump/disease_ami.object ./data_dump/disease_heart_failure.object ./data_dump/disease_pneumonia.object
 # setwd('~/repo/thesis/code/tmle')
 # data.source.file='../data_clean/data_source.R'
 data.source.file<-commandArgs(trailingOnly=TRUE)[1]
@@ -12,13 +12,16 @@ fixed.vars<-c('admission_type','transfers','to_hosp_type','los','dob','sex','age
               'insurance_plan','dow','year','month','admit.diag.mdc','csd_ct_uid','hosp')
 
 ff <- as.formula(paste('~',paste(fixed.vars,collapse='+'),'-1'))
-for (var in fixed.vars) df[,var]<-as.character(df[,var])
+# for (var in fixed.vars) df[,var]<-as.character(df[,var])
 for (var in c('age','prev_readmissions','los','transfers')) df[,var]<-as.numeric(df[,var])
 for (var in c('dob')) df[,var]<-as.numeric(as.Date(df[,var],'%Y-%m-%d'))
 
-df$to_hosp_type[is.na(df$to_hosp_type)] <- 'None'
-df$insurance_plan[is.na(df$insurance_plan)] <- 'None'
-df$admit.diag.mdc[is.na(df$admit.diag.mdc)] <- 'None'
+set.to.none<-c('to_hosp_type','insurance_plan','admit.diag.mdc')
+for (var in set.to.none) {
+  df[,var]<-as.character(df[,var])
+  df[is.na(df[,var]),var]<-'None'
+  df[,var]<-as.factor(df[,var])
+}
 
 m <- model.frame(ff, df,na.action=NULL)
 fixed.vars.mat<-model.matrix(ff,m)
