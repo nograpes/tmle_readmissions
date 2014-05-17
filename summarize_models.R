@@ -1,19 +1,24 @@
 # /usr/bin/R --args ami heart_failure pneumonia
 suppressPackageStartupMessages(library(bigrf))
-
-# Just a couple of checks that the models aren't crazy.
-# data.frame(prop.table(table(disease.df$hosp)),colMeans(prob))
-# sum(diag(rf.predict.exposure@trainconfusion)) / nrow(disease.df) # A 58% accuracy.
+suppressPackageStartupMessages(library(reshape2))
+suppressPackageStartupMessages(library(ggplot2))
 
 # Read this in programatically.
-prefix<-'heart_failure'
+prefixes<-c('ami','heart_failure')
+pretty.names<-c('Acute myocardial infarction','Heart failure')
+names(pretty.names)<-prefixes
 setwd('~/repo/thesis/code/tmle')
-load(paste0('data_dump/rf_G_model_',prefix,'.object')) # epsilons, Q.star.by.epsilon
-load(paste0('data_dump/rf_Q_star_model_',prefix,'.object')) # epsilons, Q.star.by.epsilon
-load(paste0('data_dump/disease_',prefix,'.object')) # epsilons, Q.star.by.epsilon
 
+models<-list()
+for (prefix in prefixes){
+  e<-new.env()
+  load(paste0('data_dump/rf_G_model_',prefix,'.object'),envir=e) 
+  load(paste0('data_dump/rf_Q_star_model_',prefix,'.object'),envir=e)
+  load(paste0('data_dump/disease_',prefix,'.object'),envir=e) 
+  models[[prefix]]<-mget(ls(e),envir=e)
+}
+rm(e)
 
-# A function that gives all oob votes by tree.
 # A zero vote for in-bag.
 get.oob.pred.by.tree<-function(tree) {
   in.bag<-tree@insamp!=0
@@ -22,21 +27,42 @@ get.oob.pred.by.tree<-function(tree) {
   pred.class
 }
 
-oob.pred.mat<-sapply(rf.predict.exposure,get.oob.pred.by.tree)
-l<-lapply(1:20, function(x) t(apply(oob.pred.mat == x, 1, cumsum)))
-extract.by.tree.num<-function(tree.num) sapply(l,function(x,tree.num) x[,tree.num],tree.num=tree.num)
-
-# A little plot for the random forest:
-get.accuracy<-function(num.trees){
-  # s<-sapply(1:20,function(x) rowSums(oob.pred.mat[,1:num.trees] == x))
-  s<-extract.by.tree.num(num.trees)
-  set.seed(1) # Because tie breakage is random. This is how randomForest does it too.
-  prop.table(table(max.col(s,ties.method='random')==as.numeric(disease.df$hosp)))['TRUE']
+get.accuracy<-function(rf.predict.exposure, truth){
+  class.num<-length(rf.predict.exposure@ytable)
+  oob.pred.mat<-sapply(rf.predict.exposure, get.oob.pred.by.tree)
+  l<-lapply(1:class.num, function(x) t(apply(oob.pred.mat == x, 1, cumsum)))
+  extract.by.tree.num<-function(tree.num) {
+    s<-sapply(l,function(x,tree.num) x[,tree.num],tree.num=tree.num)
+    prop.table(table(max.col(s,ties.method='random')==as.numeric(truth)))['TRUE']
+  }
+  unname(sapply(seq_along(rf.predict.exposure),extract.by.tree.num))
 }
 
+rf.exposure.accuracy.by.disease<-sapply(models,function(x) with(x,get.accuracy(rf.predict.exposure, disease.df$hosp)))
 
-acc.by.trees<-sapply(1:ncol(l[[1]]),get.accuracy)
-# plot(1-acc.by.trees,type='l') # Second degree bend around 200.
+colnames(rf.exposure.accuracy.by.disease)<-pretty.names[colnames(rf.exposure.accuracy.by.disease)]
+
+accuracy.df<-(melt(rf.exposure.accuracy.by.disease,varnames = c('trees','disease'),value.name='accuracy'))
+
+theme_set(theme_gray(base_size = 16))
+ggplot(accuracy.df,
+       aes(x=trees,y=1-accuracy,col=disease)) + 
+  geom_line(size=1.5) +
+  labs(title="Error rate for random forest model of hospital choice",
+       x='Number of trees',
+       y='Error rate (out-of-bag)') +
+  scale_colour_discrete(name = "Admission diagnosis") +
+  theme(legend.position = "bottom")
+
+
+
+extract.by.tree.num(1,models[[1]][['rf.predict.exposure']])
+
+s<-sapply(seq_along(length(rf.predict.exposure)),
+          get.accuracy,
+          rf.predict.exposure=rf.predict.exposure)
+
+plot(1-acc.by.trees,type='l') # Second degree bend around 200.
 
 # Now, let's take a look at the Q estimates.
 # get.oob.pred.by.tree(rf.predict.outcome[[1]])

@@ -1,5 +1,5 @@
 # Dump directory
-# /usr/bin/R --args ./../data_clean/data_source.R ./data_dump/fixed.vars.mat.object ./data_dump/disease_ami.object ./data_dump/disease_heart_failure.object ./data_dump/disease_pneumonia.object
+# /usr/bin/R --args ./../data_clean/data_source.R ./data_dump ./disease_subsets/ami ./disease_subsets/heart_failure ./disease_subsets/pneumonia
 # setwd('~/repo/thesis/code/tmle')
 # data.source.file='../data_clean/data_source.R'
 data.source.file<-commandArgs(trailingOnly=TRUE)[1]
@@ -47,38 +47,19 @@ make.matrix<-function(table_name,item_name,threshold=30){
   id.discharge.item<-id.discharge.item[order(id.discharge.item$id,id.discharge.item$discharge),]
   as.matrix(id.discharge.item[,-(1:2)])
 }
-
 tables<-c('chandan_procedures','chandan_diagnoses','chandan_drugs')
 item.names<-c('procedure','diagnosis','drug')
 item.matrices<-mapply(make.matrix,tables,item.names,SIMPLIFY=FALSE) # 378s
 names(item.matrices)<-item.names
 
-
 # Cut the data into several groups.
 fixed.var.names<-colnames(fixed.vars.mat)
 var.names<-sapply(item.names,function(x)colnames(item.matrices[[x]]))
-
-# save(fixed.var.names,drug.names,procedure.names,hosp.names,diagnosis.names,admit.diag.names,file=paste(dump.dir,'names.object',sep='/'))
-
-big.matrix<-c(fixed.vars.mat,
-              item.matrices[['drug']],
-              item.matrices[['procedure']],
-              item.matrices[['diagnosis']])
-
+big.matrix<-do.call(cbind,c(list(fixed.vars.mat),item.matrices))
 rm(fixed.vars.mat,item.matrices)
 invisible(gc())
 
-l<-length(big.matrix)
-dim(big.matrix)<-c(nrow(df),l/nrow(df))
-
-# Very important that you don't use lapply(c(fixed.vars,drugs),colnames)... it will copy the entire data set just for the function. Again, stupidly.
-column.names<-unlist(list(fixed.var.names,var.names))
-# Very important that you don't do colnames(big.matrix).. that will copy the whole matrix, stupidly.
-attr(big.matrix,'dimnames')[[2]]<-column.names # The "two" isn't a magic number, it is the (unnamed) dimension, 1 would be rows.
-
-
 # Now, read in all the variable names. The only thing that should be passed is the file names in disease subsets.
-
 for (path in paths){  
   regex<-scan(path,what='character',quiet=TRUE)
   rows<-which(!is.na(df$admit_diag) & grepl(regex,df$admit_diag))
