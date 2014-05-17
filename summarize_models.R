@@ -8,8 +8,23 @@ suppressPackageStartupMessages(library(bigrf))
 # Read this in programatically.
 prefix<-'heart_failure'
 setwd('~/repo/thesis/code/tmle')
+load(paste0('data_dump/rf_G_model_',prefix,'.object')) # epsilons, Q.star.by.epsilon
 load(paste0('data_dump/rf_Q_star_model_',prefix,'.object')) # epsilons, Q.star.by.epsilon
 load(paste0('data_dump/disease_',prefix,'.object')) # epsilons, Q.star.by.epsilon
+
+
+# A function that gives all oob votes by tree.
+# A zero vote for in-bag.
+get.oob.pred.by.tree<-function(tree) {
+  in.bag<-tree@insamp!=0
+  pred.class<-tree@trainpredclass
+  pred.class[in.bag]<-0
+  pred.class
+}
+
+oob.pred.mat<-sapply(rf.predict.exposure,get.oob.pred.by.tree)
+l<-lapply(1:20, function(x) t(apply(oob.pred.mat == x, 1, cumsum)))
+extract.by.tree.num<-function(tree.num) sapply(l,function(x,tree.num) x[,tree.num],tree.num=tree.num)
 
 # A little plot for the random forest:
 get.accuracy<-function(num.trees){
@@ -18,6 +33,7 @@ get.accuracy<-function(num.trees){
   set.seed(1) # Because tie breakage is random. This is how randomForest does it too.
   prop.table(table(max.col(s,ties.method='random')==as.numeric(disease.df$hosp)))['TRUE']
 }
+
 
 acc.by.trees<-sapply(1:ncol(l[[1]]),get.accuracy)
 # plot(1-acc.by.trees,type='l') # Second degree bend around 200.
@@ -109,16 +125,7 @@ confint(glm.predict.outcome)
 # Accuracy by number of trees.
 votes<-rf.predict.exposure@oobvotes
 
-# A function that gives all oob votes by tree.
-# A zero vote for in-bag.
-get.oob.pred.by.tree<-function(tree) {
-  in.bag<-tree@insamp!=0
-  pred.class<-tree@trainpredclass
-  pred.class[in.bag]<-0
-  pred.class
-}
 
-oob.pred.mat<-sapply(rf.predict.exposure,get.oob.pred.by.tree)
 #get.pred.by.row<-function(x) as.numeric(names(sort(table(x[x!=0]),decreasing=TRUE))[1])
 
 # All right, so this one is complicated.
@@ -127,8 +134,6 @@ oob.pred.mat<-sapply(rf.predict.exposure,get.oob.pred.by.tree)
 # So, for element 1 of the list of 20 that is for hospital 1.
 # So, the index 1,1 of that matrix is the number of votes for hospital 1 for the first patient when the first 1 tree(s) are included.
 # Don't think about it too hard.
-l<-lapply(1:20, function(x) t(apply(oob.pred.mat == x, 1, cumsum)))
-extract.by.tree.num<-function(tree.num) sapply(l,function(x,tree.num) x[,tree.num],tree.num=tree.num)
 
 get.accuracy<-function(num.trees){
   # s<-sapply(1:20,function(x) rowSums(oob.pred.mat[,1:num.trees] == x))
