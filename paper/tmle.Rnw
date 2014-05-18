@@ -1,0 +1,46 @@
+\documentclass[]{article}
+\usepackage{fontspec}
+\usepackage[backend=biber]{biblatex}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[left=1.27cm,top=1.27cm,right=1.27cm,bottom=1.27cm]{geometry}
+\usepackage{pbox}
+\setmainfont{Cambria}
+
+\addbibresource{tmle.bib}
+
+\begin{document}
+\title{Hospital readmissions in Montreal: A descriptive analysis}
+\author{Aman Verma}
+\date{\today}
+% \maketitle
+
+\section{Cohort selection}
+We sampled 18.60\% of the \emph{Régie de l'assurance maladie du Québec} (RAMQ) insured population that whose home address had a postal code within the Montreal 2006 Census Metropolitan Area (CMA) over the period of 1998-2006. The vast majority of the Montreal population is insured by RAMQ. We did so by randomly sampling 18.60\% of the population that was ever insured in 1998. We then sampled 18.60\% of patients that became newly insured in 1999 (they were born in 1999 in Montreal, they became RAMQ insured in 1999, or they were previously RAMQ insured but recently moved to Montreal). We repeated this for every year up to 2006, retaining each sampled person in the cohort until they no longer had an address in Montreal or they died. This sampling scheme resulted in an open, dynamic cohort, that was a random sample of 18.60\% of the Montreal population during any year.
+
+\section{Introduction}
+% Why is this question important to answer?
+
+% What is the clear study question?
+
+% How does this relate to the counterfactual statement?
+
+\section{Methods}
+\subsection{Data}
+% What does our cohort look like?
+
+
+% Why did we choose random forest?
+
+
+% How does the fastimp function rank the importance of variables?
+\subsection{Software}
+We implemented the random forest using the "bigr" package \cite{lim_bigrf_2014}. We implemented the GLM fitting using coordinate descent using the "glmnet" package.
+
+
+\section{Results}
+% What does the accuracy of the random forest model look like as the number of trees grows for both the Q model and the G model?
+% How does the glmnet model compare accuracy to the random forest model?
+% What are the most important variables?
+
+\end{document}
