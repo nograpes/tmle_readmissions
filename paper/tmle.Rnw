@@ -1,13 +1,13 @@
 \documentclass[]{article}
 \usepackage{fontspec}
-\usepackage[backend=biber]{biblatex}
 \usepackage{graphicx}
 \usepackage{float}
 \usepackage[left=1.27cm,top=1.27cm,right=1.27cm,bottom=1.27cm]{geometry}
 \usepackage{pbox}
 \setmainfont{Cambria}
 
-\addbibresource{tmle.bib}
+\usepackage[backend=bibtex]{biblatex} % If you use Biber, then you will have to compile and recompile.
+\addbibresource{tmle} 
 
 \begin{document}
 \title{Hospital readmissions in Montreal: A descriptive analysis}
@@ -35,12 +35,16 @@ We sampled 18.60\% of the \emph{Régie de l'assurance maladie du Québec} (RAMQ)
 
 % How does the fastimp function rank the importance of variables?
 \subsection{Software}
-We implemented the random forest using the "bigr" package \cite{lim_bigrf_2014}. We implemented the GLM fitting using coordinate descent using the "glmnet" package.
+We implemented the random forest using the "bigr" \cite{lim_bigrf:_2014} package . We implemented the GLM fitting using coordinate descent using the "glmnet" package.
 
 
 \section{Results}
 % What does the accuracy of the random forest model look like as the number of trees grows for both the Q model and the G model?
 % How does the glmnet model compare accuracy to the random forest model?
 % What are the most important variables?
+
+
+\section{References}
+\printbibliography
 
 \end{document}

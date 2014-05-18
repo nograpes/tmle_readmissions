@@ -69,13 +69,13 @@ modified.prob.of.outcome<-ifelse(prob.of.outcome==0,min.baseline,prob.of.outcome
 # I want to find one epsilon for each hospital.
 iptw <- exposure.mat  / modified.prob.of.exposure # Each column is now the (A==a)/g
 
-epsilon<-function(hospital.covariate)
+epsilon<-function(hospital.covariate) 
   glm(as.factor(disease.df$day_30_readmit) ~ 
         hospital.covariate-1, 
       offset=qlogis(modified.prob.of.outcome), 
       family=binomial(link=logit))$coef
 
- 
+	  
 epsilons<-apply(iptw,2,epsilon) # The fitter complains that fitted probs of 0 or 1 occurred.
 
 Q.star.by.epsilon<-sapply(1:length(epsilons),

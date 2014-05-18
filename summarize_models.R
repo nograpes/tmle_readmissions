@@ -42,29 +42,35 @@ rf.exposure.accuracy.by.disease<-sapply(models,function(x) with(x,get.accuracy(r
 
 colnames(rf.exposure.accuracy.by.disease)<-pretty.names[colnames(rf.exposure.accuracy.by.disease)]
 
-accuracy.df<-(melt(rf.exposure.accuracy.by.disease,varnames = c('trees','disease'),value.name='accuracy'))
+accuracy.df<-melt(rf.exposure.accuracy.by.disease,varnames = c('trees','disease'),value.name='accuracy')
 
 theme_set(theme_gray(base_size = 16))
 ggplot(accuracy.df,
        aes(x=trees,y=1-accuracy,col=disease)) + 
   geom_line(size=1.5) +
-  labs(title="Error rate for random forest model of hospital choice",
+  labs(title='Error rate for random forest model of hospital choice',
        x='Number of trees',
        y='Error rate (out-of-bag)') +
-  scale_colour_discrete(name = "Admission diagnosis") +
-  theme(legend.position = "bottom")
+  scale_colour_discrete(name = 'Admission diagnosis') +
+  theme(legend.position = 'bottom')
 
-
-
-extract.by.tree.num(1,models[[1]][['rf.predict.exposure']])
-
-s<-sapply(seq_along(length(rf.predict.exposure)),
-          get.accuracy,
-          rf.predict.exposure=rf.predict.exposure)
-
-plot(1-acc.by.trees,type='l') # Second degree bend around 200.
+# Also, let's make a table of the variable importance.
+help(paste0(class(rf.predict.exposure),'-class'))
 
 # Now, let's take a look at the Q estimates.
+rf.predict.exposure<-models[['ami']][['rf.predict.exposure']]
+disease.df<-models[['ami']][['disease.df']]
+disease.big.matrix<-models[['ami']][['disease.big.matrix']]
+t(t(head(rev(sort(fastimp(rf.predict.exposure))),25)))
+table(disease.df$day_30_readmit,disease.big.matrix[,'1893'])
+
+# 189.3 - Malignant neoplasm of urethra
+addmargins(table(disease.df$hosp,disease.big.matrix[,'1893']))
+
+
+
+
+
 # get.oob.pred.by.tree(rf.predict.outcome[[1]])
 
 # get.oob.outcome.pred.by.tree<-function(tree) {
