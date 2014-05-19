@@ -12,6 +12,7 @@ G.model.file<-arguments[1]
 Q.model.file<-arguments[2]
 object.file<-arguments[3]
 output.file<-arguments[4]
+matrix.cache<-arguments[5]
 load(object.file)
 load(G.model.file)
 load(Q.model.file)
@@ -31,12 +32,12 @@ prob.by.hosp<-function(hosp){
   var.name<-paste0('hosp',hosp)
   if(var.name %in% colnames(set.to.hosp)) set.to.hosp[,var.name]<-1
   
-  predict.by.tree<-function(tree.num,forest,data,cachepath=getwd(),n){
+  predict.by.tree<-function(tree.num,forest,data,cachepath=matrix.cache,n){
     xtype <- as.integer(.Call("CGetType", data@address, PACKAGE = "bigmemory"))
     tree<-forest[[tree.num]]
     .Call('treepredictC',data@address,xtype,n,forest,tree,PACKAGE = "bigrf")$testpredclass 
   }
-  data <- bigrf:::makex(set.to.hosp, "xtest", cachepath=getwd())
+  data <- bigrf:::makex(set.to.hosp, "xtest", cachepath=matrix.cache)
   # Use foreach instead of 
   prediction.by.tree<-foreach(i=seq_along(rf.predict.outcome),.combine=cbind) %dopar% predict.by.tree(tree=i,forest=rf.predict.outcome,data=data,n=nrow(set.to.hosp))
   prediction.by.tree<-prediction.by.tree == 2 # Because class 2 is true
@@ -51,7 +52,6 @@ all.Q.by.hosp<-sapply(levels(disease.df$hosp),prob.by.hosp)
 
 # Create a matrix of indicator variables.
 ff<-~hosp-1
-# contrasts(disease.df$hosp)
 exposure.mat<-(model.matrix(ff,model.frame(ff, disease.df)))
 colnames(exposure.mat)<-gsub('^hosp','',colnames(exposure.mat))
 

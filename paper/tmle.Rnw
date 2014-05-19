@@ -6,17 +6,18 @@
 \usepackage{pbox}
 \setmainfont{Cambria}
 
-\usepackage[backend=bibtex]{biblatex} % If you use Biber, then you will have to compile and recompile.
+% If you use Biber, then you will have to compile and recompile.
+% But Biber seems to be the preferred choice.
+\usepackage[backend=bibtex, sorting=none,style=numeric-comp]{biblatex} 
+
 \addbibresource{tmle} 
 
 \begin{document}
-\title{Hospital readmissions in Montreal: A descriptive analysis}
+\title{Hospital readmissions and targeted maximum likelihood estimation}
 \author{Aman Verma}
 \date{\today}
 % \maketitle
 
-\section{Cohort selection}
-We sampled 18.60\% of the \emph{Régie de l'assurance maladie du Québec} (RAMQ) insured population that whose home address had a postal code within the Montreal 2006 Census Metropolitan Area (CMA) over the period of 1998-2006. The vast majority of the Montreal population is insured by RAMQ. We did so by randomly sampling 18.60\% of the population that was ever insured in 1998. We then sampled 18.60\% of patients that became newly insured in 1999 (they were born in 1999 in Montreal, they became RAMQ insured in 1999, or they were previously RAMQ insured but recently moved to Montreal). We repeated this for every year up to 2006, retaining each sampled person in the cohort until they no longer had an address in Montreal or they died. This sampling scheme resulted in an open, dynamic cohort, that was a random sample of 18.60\% of the Montreal population during any year.
 
 \section{Introduction}
 % Why is this question important to answer?
@@ -26,20 +27,66 @@ We sampled 18.60\% of the \emph{Régie de l'assurance maladie du Québec} (RAMQ)
 % How does this relate to the counterfactual statement?
 
 \section{Methods}
+
 \subsection{Data}
 % What does our cohort look like?
 
+\subsubsection{Cohort selection}
+We sampled 18.60\% of the \emph{Régie de l'assurance maladie du Québec} (RAMQ) insured population that whose home address had a postal code within the Montreal 2006 Census Metropolitan Area (CMA) over the period of 1998-2006. The vast majority of the Montreal population is insured by RAMQ. We did so by randomly sampling 18.60\% of the population that was ever insured in 1998. We then sampled 18.60\% of patients that became newly insured in 1999 (they were born in 1999 in Montreal, they became RAMQ insured in 1999, or they were previously RAMQ insured but recently moved to Montreal). We repeated this for every year up to 2006, retaining each sampled person in the cohort until they no longer had an address in Montreal or they died. This sampling scheme resulted in an open, dynamic cohort, that was a random sample of 18.60\% of the Montreal population during any year.
+
+\subsection{Error rate}
+% What is the ref for the Gini coefficient?
+For each tree, we calculated the out-of-bag decrease in Gini impurity when comparing the split nodes of the tree to the root. 
+
+The Gini impurity at any node is, for all out-of-bag discharges.
+
+%To calculate the Gini impurity..
+For each hospital, the proportion of patients that chose this hospital $p_h$, multiplied by the probability of guessing that this patient would choose this hospital based on the distribution of patients $1-p_h$. Summed over all hospitals, this is the Gini impurity. Gini impurity is 1 when all patients chose the same hospital.
+
+To assess the importance of the variables in predicting which hospital a patient will choose, for each tree, we calculate the decrease in Gini impurity between the root of the tree and the leaves. If the patients within the leaves of the tree made relatively homogeneous hospital choices, this variable predicts hospital choice well, and the Gini impurity will decrease.
+ 
+To calculate the Gini variable importance criterion, we summed the Gini impurity decrease over all trees.
 
 % Why did we choose random forest?
 
-
 % How does the fastimp function rank the importance of variables?
 \subsection{Software}
-We implemented the random forest using the "bigr" \cite{lim_bigrf:_2014} package . We implemented the GLM fitting using coordinate descent using the "glmnet" package.
+We implemented the random forest using the "bigr" \cite{lim_bigrf:_2014} package . We implemented the GLM fitting using coordinate descent using the "glmnet" package \cite{friedman_regularization_2010}. We plotted our figures using the "ggplot2" package \cite{wickham_ggplot2:_2009}.
 
 
 \section{Results}
+% A pretty map for pretty much no reason. It shows that indeed, certain hospitals attract the residents around them, and that this does not vary by disease.
+\begin{figure}[H]
+    \includegraphics{../figures/hosp_choro.png}
+    \caption[Rates of seeking care at a selected hospital by admission diagnosis.]
+      {Rates of seeking care at a selected hospital by admission diagnosis. A descriptive sentence}
+    \label{fig:hosp_choro}
+\end{figure}
+
 % What does the accuracy of the random forest model look like as the number of trees grows for both the Q model and the G model?
+\begin{figure}[H]
+    \includegraphics{../figures/error_rate_for_hospital_choice.png}
+    \caption[Error rate for random forest model of hospital choice.]
+      {Error rate for random forest model of hospital choice. A descriptive sentence.}
+    \label{fig:error_rate_for_hospital_choice}
+\end{figure}
+
+% What are the top 10 predictive variables for the hospitals by disease?
+\begin{figure}[H]
+    \includegraphics{../figures/top_10_variable_importance_and_hospital.png}
+    \caption[Error rate for random forest model of hospital choice.]
+      {10 most important variables for the G model, by disease. A descriptive sentence.}
+    \label{fig:top_10_variable_importance_and_hospital}
+\end{figure}
+
+% How important are the different variables for each model by class?
+\begin{figure}[H]
+    \includegraphics{../figures/variable_importance_by_model_and_class.png}
+    \caption[Error rate for random forest model of hospital choice.]
+      {Variable importance by model and variable class. A descriptive sentence.}
+    \label{fig:variable_importance_by_model_and_class}
+\end{figure}
+
 % How does the glmnet model compare accuracy to the random forest model?
 % What are the most important variables?
 
