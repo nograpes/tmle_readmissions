@@ -7,7 +7,6 @@ dump.dir<-commandArgs(trailingOnly=TRUE)[2]
 paths<-commandArgs(trailingOnly=TRUE)[-(1:2)]
 source(data.source.file)
 
-# This code would work but somehow it causes a segmentation fault.
 fixed.vars<-c('admission_type','transfers','to_hosp_type','los','dob','sex','age','prev_readmissions',
               'insurance_plan','dow','year','month','admit.diag.mdc','csd_ct_uid','hosp')
 

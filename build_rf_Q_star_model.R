@@ -6,6 +6,7 @@ registerDoParallel(cores=12) # Register a serial backend to avoid warning.
 # /usr/bin/R --args data_dump/rf_G_model_ami.object data_dump/rf_Q_model_ami.object data_dump/disease_ami.object data_dump/rf_Q_star_model_ami.object
 # setwd('~/repo/thesis/code/tmle')
 # arguments<-paste('data_dump',c('rf_G_model_pneumonia.object','rf_Q_model_pneumonia.object','disease_pneumonia.object','rf_Q_star_model_pneumonia.object'),sep='/')
+# arguments<-c(paste('data_dump',c('rf_G_model_ami.object','rf_Q_model_ami.object','disease_ami.object','rf_Q_star_model_ami.object'),sep='/'),'matrix_cache')
 arguments<-commandArgs(trailingOnly=TRUE)
 
 G.model.file<-arguments[1]
@@ -84,5 +85,6 @@ Q.star.by.epsilon<-sapply(1:length(epsilons),
 
 save(epsilons, Q.star.by.epsilon, all.Q.by.hosp, file=output.file)
 
-
-
+# Simple way to get crude:
+# aggregate(day_30_readmit~hosp,disease.df,mean)
+# head(disease.df)
