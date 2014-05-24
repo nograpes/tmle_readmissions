@@ -7,7 +7,8 @@ dump.dir<-commandArgs(trailingOnly=TRUE)[2]
 paths<-commandArgs(trailingOnly=TRUE)[-(1:2)]
 source(data.source.file)
 
-fixed.vars<-c('admission_type','transfers','to_hosp_type','los','dob',
+# Length of stay must be removed.
+fixed.vars<-c('admission_type','transfers','to_hosp_type','dob',
               'sex','age','prev_readmissions',
               'insurance_plan','dow','year','month','admit.diag.mdc','csd_ct_uid','hosp')
 
