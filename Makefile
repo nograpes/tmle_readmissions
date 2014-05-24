@@ -42,10 +42,10 @@ ${DATA_DUMP_DIR}/rf_G_calibrated_model_%.object : ${DATA_DUMP_DIR}/disease_%.obj
 # This idiom is the only way I know to have a pattern depend on a shell wildcard
 # where you need to pass the shell wildcard as an argument, but not the other dependencies.
 ${DATA_DUMP_DIR}/disease_%.object : ${DISEASES}
-	${RSCRIPT} ${CUR_DIR}/build_data2.R ${DATA_CLEAN_DIR}/data_source.R ${DATA_DUMP_DIR} $^
+	${RSCRIPT} ${CUR_DIR}/build_data.R ${DATA_CLEAN_DIR}/data_source.R ${DATA_DUMP_DIR} $^
 
 # Other dependencies.
-${DISEASES} : ${CUR_DIR}/build_data2.R 
+${DISEASES} : ${CUR_DIR}/build_data.R 
 	touch $@
 # End of idiom
 
