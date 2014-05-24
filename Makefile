@@ -1,6 +1,6 @@
 CUR_DIR=.
-# DATA_CLEAN_DIR=${CUR_DIR}/../data_clean
-DATA_CLEAN_DIR=${CUR_DIR}/../report2
+DATA_CLEAN_DIR=${CUR_DIR}/../data_clean
+# DATA_CLEAN_DIR=${CUR_DIR}/../report2
 DISEASE_SUBSET_DIR=${CUR_DIR}/disease_subsets
 
 DATA_DUMP_DIR=${CUR_DIR}/data_dump
