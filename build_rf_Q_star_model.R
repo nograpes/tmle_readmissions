@@ -9,24 +9,16 @@ registerDoParallel(cores=12) # Register a serial backend to avoid warning.
 # arguments<-c(paste('data_dump',c('rf_G_model_ami.object','rf_Q_model_ami.object','disease_ami.object','rf_Q_star_model_ami.object'),sep='/'),'matrix_cache')
 arguments<-commandArgs(trailingOnly=TRUE)
 
-G.model.file<-arguments[1]
-Q.model.file<-arguments[2]
-object.file<-arguments[3]
-output.file<-arguments[4]
-matrix.cache<-arguments[5]
+G.model.file <- arguments[1]
+Q.model.file <- arguments[2]
+object.file  <- arguments[3]
+output.file  <- arguments[4]
+matrix.cache <- arguments[5]
 load(object.file)
 load(G.model.file)
 load(Q.model.file)
 
-votes<-rf.predict.exposure@oobvotes
-prob<-votes/rowSums(votes)
-prob.of.exposure <- prob[cbind(1:length(disease.df$hosp),match(disease.df$hosp,colnames(prob)))]
-
-votes<-rf.predict.outcome@oobvotes
-prob<-votes/rowSums(votes)
-prob.of.outcome <- prob[,"TRUE"]
-
-prob.by.hosp<-function(hosp){
+rf.prob.by.hosp<-function(hosp){
   set.to.hosp<-disease.big.matrix
   # Fix A to the hospital.
   set.to.hosp[,grep('^hosp',colnames(disease.big.matrix))]<-0
@@ -48,8 +40,38 @@ prob.by.hosp<-function(hosp){
   (rowSums(prediction.by.tree,na.rm=TRUE) / rowSums(!in.bag.mat)[1])
 }
 
-# Predict by all trees.
-all.Q.by.hosp<-sapply(levels(disease.df$hosp),prob.by.hosp)
+glmnet.prob.by.hosp<-function(hosp){
+  set.to.hosp<-disease.big.matrix
+  set.to.hosp[,grep('^hosp',colnames(disease.big.matrix))]<-0
+  var.name<-paste0('hosp',hosp)
+  if(var.name %in% colnames(set.to.hosp)) set.to.hosp[,var.name]<-1
+
+  c(plogis(predict(glm.predict.outcome, newx=disease.big.matrix, s=glm.predict.outcome$lambda.1se)))  
+}
+
+# G model - RF 
+votes<-rf.predict.exposure@oobvotes
+prob<-votes/rowSums(votes)
+rf.prob.of.exposure <- prob[cbind(1:length(disease.df$hosp),
+                                  match(disease.df$hosp,colnames(prob)))]
+
+
+# Q model - RF - as observed (A=a)
+votes<-rf.predict.outcome@oobvotes
+prob<-votes/rowSums(votes)
+rf.prob.of.outcome <- prob[,"TRUE"]
+
+# Q model - glmnet - as observed (A=a)
+
+
+# Q model - RF - manipulating exposure to each of twenty levels. (A=1, A=2..,A=20)
+all.rf.Q.by.hosp<-sapply(levels(disease.df$hosp),rf.prob.by.hosp)
+# Q model - glmnet - manipulating exposure to each of twenty levels
+all.glmnet.Q.by.hosp<-sapply(levels(disease.df$hosp),glmnet.prob.by.hosp)
+
+
+
+
 
 # Create a matrix of indicator variables.
 ff<-~hosp-1

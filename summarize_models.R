@@ -44,8 +44,6 @@ rf.exposure.accuracy.by.disease<-sapply(models,function(x) with(x,get.accuracy(r
 colnames(rf.exposure.accuracy.by.disease)<-
   pretty.names[names(models)]
 
-
-
 accuracy.df<-melt(rf.exposure.accuracy.by.disease,
                   varnames = c('trees','disease'),
                   value.name='accuracy')
@@ -280,137 +278,25 @@ ggplot(predictions.by.disease,aes(x=prob, y=truth, group=disease, colour=disease
 
 # What about the GLM?
 get.glmnet.predictions<-function(disease){
-disease='ami'
   e=new.env()
   load(paste0('data_dump/glmnet_Q_model_',disease,'.object'), envir=e)
   glm.predict.outcome<-get('glmnet.predict.outcome', e)
   disease.df<-models[[disease]][['disease.df']]
   disease.big.matrix<-models[[disease]][['disease.big.matrix']]
-  
-o=predict(glm.predict.outcome, newx=disease.big.matrix, s=0.3)
-length(o)
 
+  prob.of.outcome<-c(plogis(predict(glm.predict.outcome, newx=disease.big.matrix, s=glm.predict.outcome$lambda.1se)))
 
-glm.predict.outcome[[with(glm.predict.outcome,match(lambda.1se,lambda))]]
-
-predict(glm.predict.outcome)
-getMethod(predict,signature=c(object=as.character(class(glm.predict.outcome))))
-
-?cv.glmnet
-
-Methods(predict)
-
-library(glmnet)
-?cv.glmnet
-
-  oob.pred.mat<-sapply(calibrated.rf, get.oob.pred.by.tree)
-  l<-lapply(1:class.num, function(x) t(apply(oob.pred.mat == x, 1, cumsum)))
-  tree.num=1200
-  s<-sapply(l,function(x,tree.num) x[,tree.num],tree.num=tree.num)
-  prob.of.outcome<-prop.table(s,margin=1)[,2]
-  
   data.frame(disease=disease, prob=prob.of.outcome, truth=as.numeric(disease.df$day_30_readmit))
 }
 
-
 glmnet.predictions.by.disease<-do.call(rbind,lapply(prefixes,get.glmnet.predictions))
 
+ggplot(glmnet.predictions.by.disease, aes(x=prob,y=truth,colour=disease)) +
+  geom_smooth(method='gam') +
+  geom_abline(intercept = 0, slope = 1, colour='red') +
+  scale_x_continuous('GLM predicted probability of readmission',expand=c(0,0),limits=c(0,1)) + scale_y_continuous('Proportion readmitted (GAM Smoothed)')
 
-
-
-
-
-
-
-
-
-
-
-ggplot(test.df,aes(x=prob,y=truth)) + geom_smooth(method='loess') + geom_abline(intercept = 0, slope = 1, colour='red') + scale_x_continuous('Out-of-bag predicted probability of 30-day readmission',expand=c(0,0),limits=c(0,1)) + scale_y_continuous('GAM smoothed actual outcome',expand=c(0,0),limits=c(0,1)) + geom_rug(sides="b",alpha=0.1)
-
-class.num<-length(rf.predict.outcome@ytable)
-oob.pred.mat<-sapply(rf.predict.outcome, get.oob.pred.by.tree)
-l<-lapply(1:class.num, function(x) t(apply(oob.pred.mat == x, 1, cumsum)))
-tree.num=240
-s<-sapply(l,function(x,tree.num) x[,tree.num],tree.num=tree.num)
-prob.of.outcome<-prop.table(s,margin=1)[,2]
-
-test.df<-data.frame(prob=prob.of.outcome, truth=as.numeric(disease.df$day_30_readmit))
-
-ggplot(test.df,aes(x=prob,y=truth)) + geom_smooth(method='gam',formula=y~s(x,bs='cs')) + geom_abline(intercept = 0, slope = 1, colour='red') + scale_x_continuous('Out-of-bag predicted probability of 30-day readmission',expand=c(0,0),limits=c(0,1)) + scale_y_continuous('GAM smoothed actual outcome',expand=c(0,0),limits=c(0,1)) + geom_rug(sides="b",alpha=0.1)
-
-?geom_jitter
-
-?scale_x_continuous
-
-ylim(c(0,1)) + xlim(c(0,1)) +
-
-
-rf.predict.outcome@yclasswts
-
-mean(disease.df$day_30_readmit)
-mean(prob.of.outcome)
-?bigrf
-
-which(rowSums(s)!=1)[1]
-
-prop.table(table(max.col(s,ties.method='random')==as.numeric(as.factor(truth))))['TRUE']
-
-
-g=with(models[[1]],get.accuracy.outcome(rf.predict.outcome,disease.df$day_30_readmit))
-
-
-
-plot(1-g,type='l')
-
-rf.outcome.accuracy.by.disease<-sapply(models,function(x) with(x,get.accuracy(rf.predict.outcome, disease.df$day_30_readmit)))
-colnames(rf.exposure.accuracy.by.disease)<-
-  pretty.names[names(models)]
-
-outcome.accuracy.df<-melt(rf.outcome.accuracy.by.disease,
-                  varnames = c('trees','disease'),
-                  value.name='accuracy')
-
-
-p<-ggplot(outcome.accuracy.df,
-          aes(x=trees,
-              y=1-accuracy,
-              col=disease)) + 
-  geom_line(size=1.5) +
-  labs(x='Number of trees',
-       y='Error rate (out-of-bag)') +
-  scale_colour_discrete(name = 'Admission diagnosis') +
-  theme(legend.position = 'right',
-        text=element_text(family="Cambria"))
-
-p
-ggsave(filename="figures/error_rate_for_hospital_choice.png", 
-       plot=p,width=(8.5 - (0.5*2)),height=11/3,dpi=300)
-
-
-
-
-hosp=levels(disease.df$hosp)[14] # Hôpital Cité de La Santé
-set.to.hosp<-disease.big.matrix
-set.to.hosp[,grep('^hosp',colnames(disease.big.matrix))]<-0
-var.name<-paste0('hosp',hosp)
-if(var.name %in% colnames(set.to.hosp)) set.to.hosp[,var.name]<-1
-predict.by.tree<-function(tree.num,forest,data,cachepath=matrix.cache,n){
-  xtype <- as.integer(.Call("CGetType", data@address, PACKAGE = "bigmemory"))
-  tree<-forest[[tree.num]]
-  .Call('treepredictC',data@address,xtype,n,forest,tree,PACKAGE = "bigrf")$testpredclass 
-}
-data <- bigrf:::makex(set.to.hosp, "xtest", cachepath=matrix.cache)
-# Use foreach instead of 
-prediction.by.tree<-foreach(i=seq_along(rf.predict.outcome),.combine=cbind) %dopar% predict.by.tree(tree=i,forest=rf.predict.outcome,data=data,n=nrow(set.to.hosp))
-prediction.by.tree<-prediction.by.tree == 2 # Because class 2 is true
-# Now set all in-bag to NA
-in.bag.mat<-sapply(rf.predict.outcome,function(tree)tree@insamp!=0)
-prediction.by.tree[in.bag.mat]<-NA
-x=(rowSums(prediction.by.tree,na.rm=TRUE) / rowSums(!in.bag.mat)[1])
-mean(x)
-
-
+# And what does the random forest outcome look like?
 
 # Now, make a table for Q*?
 disease<-'ami'

@@ -21,10 +21,13 @@
 
 \section{Introduction}
 % Why is this question important to answer?
+It is particularly important to accurately estimate the independent effect of hospital treatment on readmission because it is being used to financially penalize hospitals.
 
 % What is the clear study question?
-
 % How does this relate to the counterfactual statement?
+What is the difference in the proportion with an emergency readmission within 30 days if all patients had attended Hospital A vs Hospital B? 
+
+The notion of a "preventable" readmission is implicit; if a patient would have been readmitted if treated at another hospital, then the readmission was preventable. 
 
 \section{Methods}
 
@@ -89,6 +92,8 @@ We implemented the random forest using the "bigr" \cite{lim_bigrf:_2014} package
 
 % How does the glmnet model compare accuracy to the random forest model?
 % What are the most important variables?
+
+\section{Discussion}
 
 
 \section{References}
