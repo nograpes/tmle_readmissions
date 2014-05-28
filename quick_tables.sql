@@ -5,7 +5,7 @@ SET client_min_messages TO 'warning';
 drop table if exists aman.drugs_one_year;
 create table aman.drugs_one_year as
 select x.id, x.discharge, 'drug' || y.cod_denom_comne || '_' || z.nom  as drug
-from aman.readmissions x join data.ramq_i_iqa2_dem_paimt_med y on 
+from aman.readmissions_top20 x join data.ramq_i_iqa2_dem_paimt_med y on 
 x.id=y.no_iciq_ben AND 
 ((y.dat_serv between (x.admit-365) AND x.admit) OR
 ((y.dat_serv+y.nbr_jr_duree_trait) between (x.admit-365) AND x.admit))
