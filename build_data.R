@@ -49,7 +49,7 @@ make.matrix<-function(table_name,item_name,threshold=30){
 
   n <- do.call(rbind, strsplit(row.names(x), ' '))
   id.discharge.item <- data.frame(n[,1], as.Date(n[,2]),x)
-  names(id.discharge.item) <- c('id','discharge',item.names)
+  names(id.discharge.item) <- c('id', 'discharge', item.names)
   row.names(id.discharge.item) <- NULL
   id.discharge.item <- id.discharge.item[order(id.discharge.item$id,id.discharge.item$discharge),]
   as.matrix(id.discharge.item[,-(1:2)])
