@@ -49,4 +49,8 @@ ${DISEASES} : ${CUR_DIR}/build_data.R
 	touch $@
 # End of idiom
 
-${CUR_DIR}/build_data.R : ${DATA_CLEAN_DIR}/data_source.R
+${CUR_DIR}/build_data.R : ${DATA_CLEAN_DIR}/data_source.R ${DATA_DUMP_DIR}/tables_finished_stamp
+	
+${DATA_DUMP_DIR}/tables_finished_stamp : ${CUR_DIR}/quick_tables.sql
+	psql -d IrisQuebec -f $<
+	touch $@
