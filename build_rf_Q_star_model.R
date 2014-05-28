@@ -13,9 +13,12 @@ arguments<-commandArgs(trailingOnly=TRUE)
 G.model.file <- arguments[1]
 rf.Q.model.file <- arguments[2]
 glmnet.Q.model.file <- arguments[3]
-object.file  <- arguments[4]
-output.file  <- arguments[5]
-matrix.cache <- arguments[6]
+calibrated.G.model.file <- arguments[4]
+calibrated.rf.Q.model.file <- arguments[5]
+object.file  <- arguments[6]
+output.file  <- arguments[7]
+matrix.cache <- arguments[8]
+
 load(object.file)
 load(G.model.file)
 load(rf.Q.model.file) # rf.predict.outcome
