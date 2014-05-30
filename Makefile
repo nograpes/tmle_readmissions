@@ -18,8 +18,9 @@ DISEASES_NO_PATH=$(subst $(DISEASE_SUBSET_DIR)/,,$(DISEASES))
 
 all: $(DISEASES_NO_PATH:%=${DATA_DUMP_DIR}/rf_Q_star_model_%.object)
 
-${DATA_DUMP_DIR}/rf_Q_star_model_%.object : ${DATA_DUMP_DIR}/rf_G_model_%.object ${DATA_DUMP_DIR}/rf_Q_model_%.object ${DATA_DUMP_DIR}/glmnet_Q_model_%.object   ${DATA_DUMP_DIR}/rf_G_calibrated_model_%.object ${DATA_DUMP_DIR}/rf_Q_calibrated_model_%.object ${DATA_DUMP_DIR}/disease_%.object
-	${RSCRIPT} ${CUR_DIR}/build_rf_Q_star_model.R $^ $@ ${MATRIX_CACHE_DIR}
+# Yeah, I can't be bothered to figure out how to make the object dependent on the R file, but not use it when calling the script.
+${DATA_DUMP_DIR}/rf_Q_star_model_%.object : ${CUR_DIR}/build_rf_Q_star_model.R ${DATA_DUMP_DIR}/rf_G_model_%.object ${DATA_DUMP_DIR}/rf_Q_model_%.object ${DATA_DUMP_DIR}/glmnet_Q_model_%.object   ${DATA_DUMP_DIR}/rf_G_calibrated_model_%.object ${DATA_DUMP_DIR}/rf_Q_calibrated_model_%.object ${DATA_DUMP_DIR}/disease_%.object
+	${RSCRIPT} ${CUR_DIR}/build_rf_Q_star_model.R ${DATA_DUMP_DIR}/rf_G_model_%.object ${DATA_DUMP_DIR}/rf_Q_model_%.object ${DATA_DUMP_DIR}/glmnet_Q_model_%.object   ${DATA_DUMP_DIR}/rf_G_calibrated_model_%.object ${DATA_DUMP_DIR}/rf_Q_calibrated_model_%.object ${DATA_DUMP_DIR}/disease_%.object $@ ${MATRIX_CACHE_DIR}
 	
 ${DATA_DUMP_DIR}/glm_Q_model_%.object : ${DATA_DUMP_DIR}/disease_%.object ${CUR_DIR}/build_glm_Q_model.R
 	${RSCRIPT} ${CUR_DIR}/build_glm_Q_model.R $< $@
