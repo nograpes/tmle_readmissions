@@ -6,11 +6,13 @@
 \usepackage{pbox}
 \setmainfont{Cambria}
 
+% latexmk -pdf -pdflatex="xelatex -interaction=batchmode" -use-make -quiet tmle.tex
+
 % If you use Biber, then you will have to compile and recompile.
 % But Biber seems to be the preferred choice.
-\usepackage[sorting=none,style=numeric-comp]{biblatex} 
+\usepackage[backend=biber,sorting=none,style=numeric-comp]{biblatex} 
 
-\addbibresource{tmle} 
+\addbibresource{tmle.bib} % Critical that you put .bib in here!
 
 \begin{document}
 \title{Hospital readmissions and targeted maximum likelihood estimation}
@@ -24,12 +26,15 @@
 It is particularly important to accurately estimate the independent effect of hospital treatment on readmission because it is being used to financially penalize hospitals.
 
 % Why it doesn't matter what a preventable readmission is if you have properly stated the counterfactual.
+Several readmission risk models have been criticized on the basis that they failed to distinguish preventable readmissions from readmissions due to chance alone. Despite evidence that clincians cannot reliably distinguish preventable and non-preventable readmissions even when given full access to the patient and relevant data, pairs of diagnosis codes have been developed that are "potentially preventable".
 
 % What is the clear study question?
 % How does this relate to the counterfactual statement?
-What is the difference in the proportion with an emergency readmission within 30 days if all patients had attended Hospital A vs Hospital B? 
+The counterfactual model clarifies the study question: What is the difference in the proportion with an emergency readmission within 30 days if all patients had attended Hospital A vs Hospital B? The notion of a "preventable" readmission is implicit; if a patient would have been readmitted if treated at another hospital, then the readmission was preventable. 
 
-The notion of a "preventable" readmission is implicit; if a patient would have been readmitted if treated at another hospital, then the readmission was preventable. 
+Since we cannot directly observe the desired proportions, we estimate it by attempting to recreate exchangeability (control for confounding) among the populations that visited different hospitals.
+
+
 
 \section{Methods}
 
@@ -94,7 +99,7 @@ To calculate the Gini variable importance criterion, we summed the Gini impurity
 
 % How does the fastimp function rank the importance of variables?
 \subsection{Software}
-We implemented the random forest using the "bigrf" \cite{lim_bigrf_2014} package . We implemented the GLM fitting using coordinate descent using the "glmnet" package \cite{friedman_regularization_2010}. We plotted our figures using the "ggplot2" package \cite{wickham_ggplot2_2009}.
+We implemented the random forest using the "bigrf" \cite{lim_bigrf:_2014} package . We implemented the GLM fitting using coordinate descent using the "glmnet" package \cite{friedman_regularization_2010}. We plotted our figures using the "ggplot2" package \cite{wickham_ggplot2:_2009}.
 
 
 \section{Results}
@@ -135,8 +140,6 @@ We implemented the random forest using the "bigrf" \cite{lim_bigrf_2014} package
 
 \section{Discussion}
 
-
-\section{References}
 \printbibliography
 
 \end{document}

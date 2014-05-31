@@ -195,23 +195,6 @@ glmnet.Q.star <- Q.star(all.glmnet.Q.by.hosp,
                         glmnet.prob.of.outcome, 
                         glmnet.epsilons)
 
-						
-# sapply(list(rf.Q.star, 
-#             calibrated.rf.Q.star, 
-# 			 calibrated.glmnet.Q.star), colMeans)
-					
-						
-# rf.Q.star<-plogis(qlogis(all.rf.Q.by.hosp) + 
-#                    ((1/modified.rf.prob.of.outcome) %*% t(rf.epsilons)))
-
-# calibrated.rf.Q.star<-plogis(qlogis(all.rf.Q.by.hosp) + 
-#                    ((1/modified.calibrated.rf.prob.of.outcome) %*%  t(rf.epsilons)))
-
-# glmnet.Q.star<-plogis(qlogis(all.glmnet.Q.by.hosp) + 
-#                    ((1/glmnet.prob.of.outcome) %*% t(glmnet.epsilons)))
-				   
-# save(rf.epsilons, glmnet.epsilons, rf.Q.star, glmnet.Q.star, file=output.file)
-
 save(rf.Q.star, calibrated.rf.Q.star, glmnet.Q.star,
      rf.epsilons, calibrated.rf.epsilons, glmnet.epsilons,
      all.rf.Q.by.hosp, all.calibrated.rf.Q.by.hosp, all.glmnet.Q.by.hosp,
