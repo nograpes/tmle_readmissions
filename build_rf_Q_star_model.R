@@ -17,8 +17,8 @@ glmnet.Q.model.file <- arguments[3]
 calibrated.G.model.file <- arguments[4]
 calibrated.rf.Q.model.file <- arguments[5]
 object.file  <- arguments[6]
-output.file  <- arguments[7]
-R.file  <- arguments[8] # Ugly hack -- I can't get the Makefile to work without passing the R file as a param.
+R.file  <- arguments[7] # Ugly hack -- I can't get the Makefile to work without passing the R file as a param.
+output.file  <- arguments[8]
 matrix.cache <- arguments[9]
 
 load(object.file)
