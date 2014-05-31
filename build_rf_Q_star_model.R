@@ -195,9 +195,9 @@ glmnet.Q.star <- Q.star(all.glmnet.Q.by.hosp,
                         glmnet.epsilons)
 
 						
-sapply(list(rf.Q.star, 
-            calibrated.rf.Q.star, 
-			calibrated.glmnet.Q.star), colMeans)
+# sapply(list(rf.Q.star, 
+#             calibrated.rf.Q.star, 
+# 			 calibrated.glmnet.Q.star), colMeans)
 					
 						
 # rf.Q.star<-plogis(qlogis(all.rf.Q.by.hosp) + 
