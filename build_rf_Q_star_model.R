@@ -213,5 +213,6 @@ glmnet.Q.star <- Q.star(all.glmnet.Q.by.hosp,
 
 save(rf.Q.star, calibrated.rf.Q.star, glmnet.Q.star,
      rf.epsilons, calibrated.rf.epsilons, glmnet.epsilons,
+     all.rf.Q.by.hosp, all.calibrated.rf.Q.by.hosp, all.glmnet.Q.by.hosp,
 	 file=output.file)
 
