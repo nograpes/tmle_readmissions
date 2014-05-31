@@ -18,7 +18,8 @@ calibrated.G.model.file <- arguments[4]
 calibrated.rf.Q.model.file <- arguments[5]
 object.file  <- arguments[6]
 output.file  <- arguments[7]
-matrix.cache <- arguments[8]
+R.file  <- arguments[8] # Ugly hack -- I can't get the Makefile to work without passing the R file as a param.
+matrix.cache <- arguments[9]
 
 load(object.file)
 load(G.model.file) # rf.predict.exposure
