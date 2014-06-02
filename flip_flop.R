@@ -1,3 +1,4 @@
+# This is some preliminary exploration of the problem of no convergence for one of the hospitals in the pneumonia subset.
 debugonce(glm.fit)
 
 library(parallel)
