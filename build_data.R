@@ -75,6 +75,9 @@ for (path in paths){
   regex<-scan(path,what='character',quiet=TRUE)
   rows<-which(!is.na(df$admit_diag) & grepl(regex,df$admit_diag))
   disease.df<-df[rows,]
+  # Died during stay
+  rows2<-which(!is.na(died.during.stay$admit_diag) & grepl(regex,died.during.stay$admit_diag))
+  disease.df<-df[rows2,]
   disease.big.matrix<-cbind(big.matrix[rows,])
   
   save(var.names,disease.df,disease.big.matrix,file=paste0(dump.dir,'/disease_',basename(path),'.object'))
