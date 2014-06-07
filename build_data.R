@@ -17,7 +17,7 @@ ff <- as.formula(paste('~',paste(fixed.vars,collapse='+'),'-1'))
 for (var in c('age','prev_readmissions','transfers')) df[,var]<-as.numeric(df[,var])
 for (var in c('dob')) df[,var]<-as.numeric(as.Date(df[,var],'%Y-%m-%d'))
 
-set.to.none<-c('to_hosp_type','insurance_plan','admit.diag.mdc')
+set.to.none<-c('insurance_plan','admit.diag.mdc')
 for (var in set.to.none) {
   df[,var]<-as.character(df[,var])
   df[is.na(df[,var]),var]<-'None'
@@ -66,11 +66,16 @@ big.matrix<-do.call(cbind,c(list(fixed.vars.mat),item.matrices))
 rm(fixed.vars.mat,item.matrices)
 invisible(gc())
 
+# Add in data on those who died during the stay.
+# Died during stay
+died.during.stay<-dbReadTable(con,'died_during_stay_cohort')
+
 # Now, read in all the variable names. The only thing that should be passed is the file names in disease subsets.
 for (path in paths){  
   regex<-scan(path,what='character',quiet=TRUE)
   rows<-which(!is.na(df$admit_diag) & grepl(regex,df$admit_diag))
   disease.df<-df[rows,]
   disease.big.matrix<-cbind(big.matrix[rows,])
+  
   save(var.names,disease.df,disease.big.matrix,file=paste0(dump.dir,'/disease_',basename(path),'.object'))
 }

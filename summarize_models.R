@@ -321,18 +321,49 @@ ggplot(glmnet.predictions.by.disease, aes(x=prob,y=truth,colour=disease)) +
 # And what does the random forest outcome look like?
 
 # Now, make a table for Q*?
-disease<-'ami'
-Q.star.by.epsilon<-models[[disease]][['Q.star.by.epsilon']]
-all.Q.by.hosp<-models[['ami']][['all.Q.by.hosp']]
-epsilon=models[['ami']][['epsilons']]
+# rf.Q.star, calibrated.rf.Q.star, glmnet.Q.star,
+# rf.epsilons, calibrated.rf.epsilons, glmnet.epsilons,
+# all.rf.Q.by.hosp, all.calibrated.rf.Q.by.hosp, all.glmnet.Q.by.hosp,
+# ls(models[[disease]])
+dump.results.df<-function(disease, model) {
+  Q.star.by.epsilon <- models[[disease]][[paste0(model,'.Q.star')]]
+  all.Q.by.hosp <- models[[disease]][[paste0('all.',model,'.Q.by.hosp')]]
+  epsilon <- models[[disease]][[paste0(model,'.epsilons')]]
+  disease.df <- models[[disease]][['disease.df']]
+  crude.readmitted.n<-table(disease.df$hosp,disease.df$day_30_readmit)[,'TRUE']
+  n<-c(table(disease.df$hosp))
+  crude.props<-prop.table(table(disease.df$hosp,disease.df$day_30_readmit),margin=1)[,'TRUE']
+  data.frame(n,readmitted=crude.readmitted.n,prop=crude.props, Q=colMeans(all.Q.by.hosp),epsilon, Q.star=colMeans(Q.star.by.epsilon))
+}
 
 
-ls(models[[disease]])
+dump.glmnet.coefs<-function(disease) {
+  glmnet.model<-models[[disease]][['glmnet.predict.outcome']]
+  match(glmnet.model$lambda.1se,glmnet.model$lambda)
+  rownames(as.matrix(coef(glmnet.model)))[c(as.matrix(coef(glmnet.model)!=0))]
+}
+
+dump.glmnet.coefs('pneumonia')
+dump.glmnet.coefs('ami')
+dump.glmnet.coefs('heart_failure')
+
+
+dump.results.df('ami','calibrated.rf')
+dump.results.df('ami','glmnet')
+
+dump.results.df('heart_failure','calibrated.rf')
+dump.results.df('heart_failure','glmnet')
+
+
+# How do I get died in hospital?
+
+
+
+# What is the crude?
 
 
 
 # I want crude proportion, Q, Q.star, n
-data.frame(epsilon, Q=colMeans(all.Q.by.hosp), Q.star=colMeans(Q.star.by.epsilon))
 
 
 #                                              epsilon         Q    Q.star

@@ -51,15 +51,22 @@
 \usepackage{fontspec}
 \usepackage{graphicx}
 \usepackage{float}
-\usepackage[left=1.27cm,top=1.27cm,right=1.27cm,bottom=1.27cm]{geometry}
+\usepackage[left=2.54cm,top=2.54cm,right=2.54cm,bottom=2.54cm]{geometry}
 \usepackage{pbox}
 \setmainfont{Cambria}
+
+\usepackage{setspace}
+\doublespacing % For double-spacing. (From setspace)
+
+\usepackage[document]{ragged2e} % For left-alignment.
+\usepackage{parskip} % For space between paragraphs
 
 % latexmk -pdf -pdflatex="xelatex -interaction=batchmode" -use-make -quiet tmle.tex
 
 % If you use Biber, then you will have to compile and recompile.
 % But Biber seems to be the preferred choice.
 \usepackage[backend=biber,sorting=none,style=numeric-comp]{biblatex} 
+
 
 \addbibresource{tmle.bib} % Critical that you put .bib in here!
 \IfFileExists{upquote.sty}{\usepackage{upquote}}{}
@@ -73,10 +80,15 @@
 
 \section{Introduction}
 % Why is this question important to answer?
+In the early eighties, hospital administrators in the US sought to reduce hospitalization costs by changing the reimbursement system. Instead of paying hospitals per day of hospitalization, hospitals were paid a fixed rate for the type of hospitalization and the procedures performed. Following implementation of this law, the length of stay at hospitals dropped dramatically, although evidence exists that is was already in decline. 
+
+Some worry that the new system created a perverse incentive to discharge patients early, and admit them again at a later date. To ensure proper quality of care in the hospitals while keeping costs controlled, administrators have sought to establish useful quality of care metrics. Hospital readmissions have been identified as a simple metric that can establish a baseline of care; if an abnormally high number of patients from a certain hospital are quickly readmitted, it could indicate poor quality of care. 
+
+% The creation of a new system.
 It is particularly important to accurately estimate the independent effect of hospital treatment on readmission because it is being used to financially penalize hospitals.
 
 % Why it doesn't matter what a preventable readmission is if you have properly stated the counterfactual.
-Several readmission risk models have been criticized on the basis that they failed to distinguish preventable readmissions from readmissions due to chance alone. Despite evidence that clincians cannot reliably distinguish preventable and non-preventable readmissions even when given full access to the patient and relevant data, pairs of diagnosis codes have been developed that are "potentially preventable".
+Several readmission risk models have been criticized on the basis that they failed to distinguish preventable readmissions from readmissions due to chance alone. Despite evidence that clincians cannot reliably distinguish preventable and non-preventable readmissions, pairs of diagnosis codes have been developed that are "potentially preventable".
 
 % How does this relate to the counterfactual statement?
 The counterfactual model clarifies the study question: What is the difference in the proportion with an emergency readmission within 30 days if all patients had attended Hospital A vs Hospital B? The notion of a "preventable" readmission is implicit; if a patient would have been readmitted if treated at another hospital, then the readmission was preventable. 
@@ -93,7 +105,7 @@ Since we cannot directly observe the desired proportions, we estimate it by atte
 % We use techniques borrowed from machine learning. 
 % We can use the power of some non-parametric techniques, that are typically difficult to use for inference, to improve our inference through TMLE.
 
-% What is the clear study question?
+% What is the study question?
 
 
 \section{Methods}
@@ -130,16 +142,16 @@ We believed that census tract of residence would strongly affect the probability
 \subsection{Models}
 \subsubsection{Model $g$ - probability of exposure}
 % We built a model G
-We developed a multinomial model $g$ that predicted the probability of attending each of the twenty hospitals (the exposure) as a function of all the confounders. To fit $g$ we used a random forest, a non-parametric model based on decision trees \cite{breiman_random_2001}. 
+We developed a multinomial model $g$ that predicted the probability of attending each of the twenty hospitals (the exposure) as a function of all the confounders. To fit $g$ we used a random forest, a non-parametric model based on decision trees \supercite{breiman_random_2001}. 
 
 % Explain random forest a bit better?
-Our trees were decision stumps; we only used one splitting node at in each tree. We arbitrarily chose to grow 1200 trees (decision stumps), and then measured the accuracy as a function of the numer of trees to ensure that growing further trees would be unlikely to significantly improve accuracy. When measuring the accuracy for each discharge, we only used trees for which the discharge was "out-of-bag", that is, we only used trees for which the bootstrap replicate did not include the discharge.
+Our trees were decision stumps; we only used one splitting node at in each tree. We arbitrarily chose to grow 1200 trees (decision stumps), and then measured the accuracy as a function of the number of trees to ensure that growing further trees would be unlikely to significantly improve accuracy. When measuring the accuracy for each discharge, we only used trees for which the discharge was "out-of-bag", that is, we only used trees for which the bootstrap replicate did not include the discharge.
 
 % We calibrated it based on the weights of the hospital. It was multinomial in that we predicted 20 hospitals. We measured the calibration, similarly only using out-of-bag discharges. We investigated the top 10 variables most important variables, as measured by the Gini coefficient. 
  
 % How the Gini coefficient works.
 % Make it clear that you didn't invent this.
-To assess the importance of the variables in predicting which hospital a patient will choose, for each tree, we calculate the increase in homogeneity of classes between the root of the tree and the leaves. To measure the homogeneity of classes, we repurpose a metric that is typically used to measure equality (homogeneity) of income, the Gini coefficient \cite{gini_variabilita_1912}. The homogeneity is defined as the sum of squared proportions in each class (hospital), with a maximum of 1 (all discharges at the same hospital) and a minimum of 1/20 (the discharges were evenly divided between the 20 hospitals). If the patients within the leaves of the tree made relatively homogeneous hospital choices, this variable predicts hospital choice well.
+To assess the importance of the variables in predicting which hospital a patient will choose, for each tree, we calculate the increase in homogeneity of classes between the root of the tree and the leaves. To measure the homogeneity of classes, we repurpose a metric that is typically used to measure equality (homogeneity) of income, the Gini coefficient \supercite{gini_variabilita_1912}. The homogeneity is defined as the sum of squared proportions in each class (hospital), with a maximum of 1 (all discharges at the same hospital) and a minimum of 1/20 (the discharges were evenly divided between the 20 hospitals). If the patients within the leaves of the tree made relatively homogeneous hospital choices, this variable predicts hospital choice well.
 
 % How we weighted -- still haven't put in how it was the *Gini* that was weighted.
 Because the model was used solely to estimate the \emph{probability} of admission to to specific hospitals (and not to predict exactly which hospital was attended), we configured the model to favour calibration over discrimination: we weighted each of the twenty predicted hospitals by the inverse of the proportion of discharges at that hospital. We multiplied each proportion used to calculate the Gini coefficient by this weight.
@@ -168,45 +180,45 @@ Gini is defined as "inequity" when used in describing a society's distribution o
 \subsubsection{Model Q* - updated targeted maximum likelihood estimation}
 
 % We updated for Q*
-To avoid convergence problems for this one parameter model, we fit the parameter using a quasi-Newton method simultaneously discovered by Broyden\cite{broyden_convergence_1970}, Fletcher\cite{fletcher_new_1970}, Goldfarb\cite{goldfarb_family_1970} and Shanno\cite{shanno_conditioning_1970} (BFGS).
+To avoid convergence problems for this one parameter model, we fit the parameter using a quasi-Newton method simultaneously discovered by Broyden\supercite{broyden_convergence_1970}, Fletcher\supercite{fletcher_new_1970}, Goldfarb\supercite{goldfarb_family_1970} and Shanno\supercite{shanno_conditioning_1970} (BFGS).
 
 
 \subsection{Software}
-We implemented our models using the R statistical package (version 3.1.0) \cite{team_r:_2014}. We implemented the random forest using the "bigrf" package (version 0.1.9) \cite{lim_bigrf:_2014}. We implemented the GLM fitting using coordinate descent using the "glmnet" package (version 1.9.5) \cite{friedman_regularization_2010}. We plotted our figures using the "ggplot2" package (version 1.0.0) \cite{wickham_ggplot2:_2009}.
+The data were cleaned and prepared for statistical analysis using the Postgres relational database (version 9.2.6). We implemented our models using the R statistical package (version 3.1.0) \supercite{team_r:_2014}. We implemented the random forest using the "bigrf" package (version 0.1.9) \supercite{lim_bigrf:_2014}. We implemented the GLM fitting using coordinate descent using the "glmnet" package (version 1.9.5) \supercite{friedman_regularization_2010}. We plotted our figures using the "ggplot2" package (version 1.0.0) \supercite{wickham_ggplot2:_2009}.
 
 
 \section{Results}
 % A pretty map for pretty much no reason. It shows that indeed, certain hospitals attract the residents around them, and that this does not vary by disease.
-\begin{figure}[H]
-    \includegraphics{../figures/hosp_choro.png}
-    \caption[Rates of seeking care at a selected hospital by admission diagnosis.]
-      {Rates of seeking care at a selected hospital by admission diagnosis. A descriptive sentence}
-    \label{fig:hosp_choro}
-\end{figure}
+% \begin{figure}[H]
+%     \includegraphics{../figures/hosp_choro.png}
+%     \caption[Rates of seeking care at a selected hospital by admission diagnosis.]
+%       {Rates of seeking care at a selected hospital by admission diagnosis. A descriptive sentence}
+%     \label{fig:hosp_choro}
+% \end{figure}
 
 % What does the accuracy of the random forest model look like as the number of trees grows for both the Q model and the G model?
-\begin{figure}[H]
-    \includegraphics{../figures/error_rate_for_hospital_choice.png}
-    \caption[Error rate for random forest model of hospital choice.]
-      {Error rate for random forest model of hospital choice. A descriptive sentence.}
-    \label{fig:error_rate_for_hospital_choice}
-\end{figure}
+% \begin{figure}[H]
+%     \includegraphics{../figures/error_rate_for_hospital_choice.png}
+%     \caption[Error rate for random forest model of hospital choice.]
+%       {Error rate for random forest model of hospital choice. A descriptive sentence.}
+%     \label{fig:error_rate_for_hospital_choice}
+% \end{figure}
 
 % What are the top 10 predictive variables for the hospitals by disease?
-\begin{figure}[H]
-    \includegraphics{../figures/top_10_variable_importance_and_hospital.png}
-    \caption[Error rate for random forest model of hospital choice.]
-      {10 most important variables for the G model, by disease. A descriptive sentence.}
-    \label{fig:top_10_variable_importance_and_hospital}
-\end{figure}
+% \begin{figure}[H]
+%     \includegraphics{../figures/top_10_variable_importance_and_hospital.png}
+%     \caption[Error rate for random forest model of hospital choice.]
+%       {10 most important variables for the G model, by disease. A descriptive sentence.}
+%     \label{fig:top_10_variable_importance_and_hospital}
+% \end{figure}
 
 % How important are the different variables for each model by class?
-\begin{figure}[H]
-    \includegraphics{../figures/variable_importance_by_model_and_class.png}
-    \caption[Error rate for random forest model of hospital choice.]
-      {Variable importance by model and variable class. A descriptive sentence.}
-    \label{fig:variable_importance_by_model_and_class}
-\end{figure}
+% \begin{figure}[H]
+%     \includegraphics{../figures/variable_importance_by_model_and_class.png}
+%     \caption[Error rate for random forest model of hospital choice.]
+%       {Variable importance by model and variable class. A descriptive sentence.}
+%     \label{fig:variable_importance_by_model_and_class}
+% \end{figure}
 
 % How does the glmnet model compare accuracy to the random forest model?
 % What are the most important variables?
