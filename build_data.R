@@ -6,6 +6,9 @@ arguments <- commandArgs(trailingOnly=TRUE)
 data.source.file<-arguments[1]
 dump.dir<-arguments[2]
 paths<-arguments[-(1:2)]
+
+# Extremely important to set this before sourcing.. data.source.file uses this
+cohort.table <- 'readmissions_top20_one_year'
 source(data.source.file)
 
 fixed.vars<-c('admission_type','dob',
@@ -68,17 +71,17 @@ invisible(gc())
 
 # Add in data on those who died during the stay.
 # Died during stay
-died.during.stay<-dbReadTable(con,'died_during_stay_cohort')
+died.during.stay<-dbReadTable(con,'died_during_stay_one_year')
 
 # Now, read in all the variable names. The only thing that should be passed is the file names in disease subsets.
 for (path in paths){  
   regex<-scan(path,what='character',quiet=TRUE)
   rows<-which(!is.na(df$admit_diag) & grepl(regex,df$admit_diag))
   disease.df<-df[rows,]
+  disease.big.matrix<-cbind(big.matrix[rows,])
   # Died during stay
   rows2<-which(!is.na(died.during.stay$admit_diag) & grepl(regex,died.during.stay$admit_diag))
-  disease.df<-df[rows2,]
-  disease.big.matrix<-cbind(big.matrix[rows,])
+  died.during.stay<-df[rows2,]
   
   save(var.names,disease.df,disease.big.matrix,file=paste0(dump.dir,'/disease_',basename(path),'.object'))
 }
