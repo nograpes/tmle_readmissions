@@ -8,7 +8,7 @@ dump.dir<-arguments[2]
 paths<-arguments[-(1:2)]
 source(data.source.file)
 
-fixed.vars<-c('admission_type','transfers','to_hosp_type','dob',
+fixed.vars<-c('admission_type','dob',
               'sex','age','prev_readmissions',
               'insurance_plan','dow','year','month','admit.diag.mdc','csd_ct_uid','hosp')
 
