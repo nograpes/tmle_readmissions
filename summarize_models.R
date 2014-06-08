@@ -347,9 +347,46 @@ dump.glmnet.coefs('pneumonia')
 dump.glmnet.coefs('ami')
 dump.glmnet.coefs('heart_failure')
 
+dump.results.df('pneumonia','calibrated.rf')
+dump.results.df('pneumonia','glmnet')
 
 dump.results.df('ami','calibrated.rf')
 dump.results.df('ami','glmnet')
+
+colMeans(Q.star.by.epsilon)
+
+which(is.nan(Q.star.by.epsilon[,1]))
+# [1]  1089  2686  2687 17803 23448 23449 28148
+Q.star.by.epsilon[1089,]
+# So, for the 1089th person in the heart_failure cohort.
+# 4 NaNs in the Qstar? 
+# Betcha predicted prob is very very close to 1.
+# No.... 
+# They had a Q, right?
+all.Q.by.hosp[1089,] # Yep.
+
+[[paste0('.Q.star')]]
+
+
+Q.star<-function(Q, iptw, epsilons)
+  plogis(qlogis(Q) + ((1/iptw) %*% t(epsilons)))
+
+epsilons<-function(offset, iptw) {
+  glm.BFGS(x=iptw,
+           y=as.numeric(disease.df$day_30_readmit),
+           offset=offset)
+}
+
+Q.star.by.epsilon=models[['heart_failure']][['calibrated.rf.Q.star']]
+all.Q.by.hosp <- models[['heart_failure']][[paste0('all.calibrated.rf.Q.by.hosp')]]
+
+
+calibrated.rf.epsilons <- epsilons(modified.calibrated.rf.prob.of.outcome, calibrated.iptw)
+
+calibrated.rf.Q.star <- Q.star(all.calibrated.rf.Q.by.hosp, 
+                               modified.calibrated.rf.prob.of.outcome, 
+                               calibrated.rf.epsilons)
+
 
 dump.results.df('heart_failure','calibrated.rf')
 dump.results.df('heart_failure','glmnet')
