@@ -3,7 +3,7 @@ suppressPackageStartupMessages(library(bigrf))
 suppressPackageStartupMessages(library(doParallel))
 registerDoParallel(cores=12) # Register a parallel backend -- prediction is slow.
 
-# /usr/bin/R ./build_rf_Q_star_model.R --args data_dump/rf_G_model_heart_failure.object data_dump/rf_Q_model_heart_failure.object data_dump/glmnet_Q_model_heart_failure.object data_dump/rf_G_calibrated_model_heart_failure.object data_dump/rf_Q_calibrated_model_heart_failure.object data_dump/disease_heart_failure.object data_dump/rf_Q_star_model_heart_failure.object ./matrix_cache
+# /usr/bin/R ./build_rf_Q_star_model.R --args data_dump/rf_G_model_heart_failure.object data_dump/rf_Q_model_heart_failure.object data_dump/glmnet_Q_model_heart_failure.object data_dump/rf_G_calibrated_model_heart_failure.object data_dump/rf_Q_calibrated_model_heart_failure.object data_dump/disease_heart_failure.object  data_dump/build_rf_Q_star_model.R data_dump/rf_Q_star_model_heart_failure.object  ./matrix_cache
 
 # arguments <- c('data_dump/rf_G_model_pneumonia.object','data_dump/rf_Q_model_pneumonia.object','data_dump/glmnet_Q_model_pneumonia.object','data_dump/rf_G_calibrated_model_pneumonia.object','data_dump/rf_Q_calibrated_model_pneumonia.object','data_dump/disease_pneumonia.object','data_dump/rf_Q_star_model_pneumonia.object','./matrix_cache')
 
@@ -54,7 +54,7 @@ rf.prob.by.hosp<-function(hosp, rf.predict.outcome){
   # Now set all in-bag to NA
   in.bag.mat<-sapply(rf.predict.outcome,function(tree)tree@insamp!=0)
   prediction.by.tree[in.bag.mat]<-NA
-  (rowSums(prediction.by.tree,na.rm=TRUE) / rowSums(!in.bag.mat)[1])
+  (rowSums(prediction.by.tree,na.rm=TRUE) / rowSums(!in.bag.mat))
 }
 
 glmnet.prob.by.hosp<-function(hosp){
@@ -102,7 +102,6 @@ all.rf.Q.by.hosp<-sapply(levels(disease.df$hosp),rf.prob.by.hosp,rf.predict.outc
 
 # Q model - calibrated RF - manipulating exposure to each of twenty levels. (A=1, A=2..,A=20)
 all.calibrated.rf.Q.by.hosp<-sapply(levels(disease.df$hosp),rf.prob.by.hosp,rf.predict.outcome=calibrated.rf.predict.outcome)
-
 
 # Q model - glmnet - manipulating exposure to each of twenty levels
 # There is almost certainly a more clever way to do this:
