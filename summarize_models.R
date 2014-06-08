@@ -378,6 +378,5 @@ disease.table<-function(disease, models=c('calibrated.rf','glmnet')) {
   cbind(dump.base.stats(disease), Reduce(cbind, model.tables))
 }
 
-
 disease.results.table<-sapply(prefixes, disease.table, simplify=FALSE)
 save(disease.results.table,file='tables/disease.results.table.object')

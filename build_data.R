@@ -70,13 +70,16 @@ rm(fixed.vars.mat,item.matrices)
 invisible(gc())
 
 # Now, read in all the variable names. The only thing that should be passed is the file names in disease subsets.
+# paths<-c('./disease_subsets/ami', './disease_subsets/heart_failure', './disease_subsets/pneumonia')
+all.died.during.stay<-died.during.stay
+
 for (path in paths){
   regex<-scan(path,what='character',quiet=TRUE)
   rows<-which(!is.na(df$admit_diag) & grepl(regex,df$admit_diag))
   disease.df<-df[rows,]
   disease.big.matrix<-cbind(big.matrix[rows,])
   # Died during stay
-  rows2<-which(!is.na(died.during.stay$admit_diag) & grepl(regex,died.during.stay$admit_diag))
-  died.during.stay<-df[rows2,]
+  rows2<-which(!is.na(all.died.during.stay$admit_diag) & grepl(regex,all.died.during.stay$admit_diag))
+  died.during.stay<-all.died.during.stay[rows2,]
   save(died.during.stay,var.names,disease.df,disease.big.matrix,file=paste0(dump.dir,'/disease_',basename(path),'.object'))
 }
