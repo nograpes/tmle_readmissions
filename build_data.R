@@ -69,10 +69,6 @@ big.matrix<-do.call(cbind,c(list(fixed.vars.mat),item.matrices))
 rm(fixed.vars.mat,item.matrices)
 invisible(gc())
 
-# Add in data on those who died during the stay.
-# Died during stay
-died.during.stay<-dbReadTable(con,'died_during_stay_one_year')
-
 # Now, read in all the variable names. The only thing that should be passed is the file names in disease subsets.
 for (path in paths){
   regex<-scan(path,what='character',quiet=TRUE)
