@@ -1,0 +1,64 @@
+\documentclass[]{article}
+\usepackage{fontspec}
+% \usepackage[backend=biber]{biblatex}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[left=2.54cm,top=2.54cm,right=2.54cm,bottom=2.54cm]{geometry}
+\usepackage{pbox}
+\setmainfont{Cambria}
+\usepackage{multirow}
+\usepackage{tabu,booktabs}
+\usepackage[table]{xcolor}
+\usepackage{longtable}
+\usepackage{pdflscape}
+
+\begin{document}
+
+%\begin{landscape}
+
+
+<<ami, cache=FALSE, echo=FALSE, results='asis'>>=
+suppressPackageStartupMessages(library(Hmisc))
+load(file='disease.results.table.object') # disease.results.table
+table<-disease.results.table[['ami']]
+colnames(table)<-c(n='n',readmitted='Readmitted',prop='(\\%)',Q='Q',epsilon='ε',Q.star='Q*')[colnames(table)]
+rownames(table)<-NULL
+latex(round(table,2),file='',
+      cgroup=c("","Random Forest","GLMnet"), n.cgroup=c(3,3,3),
+      rowlabel="Hospital",
+      caption.loc="bottom",
+      caption="Acute myocardial infarction (AMI).")
+
+@
+
+<<heart_failure, cache=FALSE, echo=FALSE, results='asis'>>=
+suppressPackageStartupMessages(library(Hmisc))
+load(file='disease.results.table.object') # disease.results.table
+table<-disease.results.table[['heart_failure']]
+colnames(table)<-c(n='n',readmitted='Readmitted',prop='(\\%)',Q='Q',epsilon='ε',Q.star='Q*')[colnames(table)]
+rownames(table)<-NULL
+latex(round(table,2),file='',
+      cgroup=c("","Random Forest","GLMnet"), n.cgroup=c(3,3,3),
+      rowlabel="Hospital",
+      caption.loc="bottom",
+      caption="Heart failure")
+
+@
+
+<<pneumonia, cache=FALSE, echo=FALSE, results='asis'>>=
+suppressPackageStartupMessages(library(Hmisc))
+load(file='disease.results.table.object') # disease.results.table
+table<-disease.results.table[['pneumonia']]
+colnames(table)<-c(n='n',readmitted='Readmitted',prop='(\\%)',Q='Q',epsilon='ε',Q.star='Q*')[colnames(table)]
+rownames(table)<-NULL
+latex(round(table,2),file='',
+      cgroup=c("","Random Forest","GLMnet"), n.cgroup=c(3,3,3),
+      rowlabel="Hospital",
+      caption.loc="bottom",
+      caption="Pneumonia")
+@
+
+
+%\end{landscape}
+
+\end{document}
