@@ -1,7 +1,10 @@
-# /usr/bin/R --args ami heart_failure pneumonia
 suppressPackageStartupMessages(library(bigrf))
 suppressPackageStartupMessages(library(reshape2))
 suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(doParallel))
+suppressPackageStartupMessages(library(gam))
+registerDoParallel(cores=12) # Register a parallel backend -- prediction is slow.
+
 
 # Read this in programatically.
 prefixes<-c('ami','heart_failure','pneumonia')
@@ -289,8 +292,8 @@ get.oob.predictions<-function(disease){
 
 predictions.by.disease<-do.call(rbind,lapply(prefixes,get.oob.predictions))
 
-ggplot(predictions.by.disease,aes(x=prob, y=truth, group=disease, colour=disease)) + 
-  geom_smooth(method=gam,formula=y~s(x,bs='cs'),size=1.25) + 
+p<-ggplot(predictions.by.disease,aes(x=prob, y=truth, group=disease, colour=disease)) + 
+  geom_smooth(method=gam,size=1.25) + 
   geom_abline(intercept = 0, slope = 1, colour='black') + 
   scale_x_continuous('Out-of-bag predicted probability of 30-day readmission',expand=c(0,0),limits=c(0,1)) +
   scale_y_continuous('GAM smoothed actual outcome',expand=c(0,0),limits=c(0,1)) +
@@ -318,6 +321,16 @@ ggplot(glmnet.predictions.by.disease, aes(x=prob,y=truth,colour=disease)) +
   geom_abline(intercept = 0, slope = 1, colour='red') +
   scale_x_continuous('GLM predicted probability of readmission',expand=c(0,0),limits=c(0,1)) + scale_y_continuous('Proportion readmitted (GAM Smoothed)')
 
+# A summary function for the top covariates.
+dump.glmnet.coefs<-function(disease) {
+  glmnet.model<-models[[disease]][['glmnet.predict.outcome']]
+  match(glmnet.model$lambda.1se,glmnet.model$lambda)
+  rownames(as.matrix(coef(glmnet.model)))[c(as.matrix(coef(glmnet.model)!=0))]
+}
+
+# dump.glmnet.coefs('pneumonia')
+# dump.glmnet.coefs('ami')
+# dump.glmnet.coefs('heart_failure')
 # And what does the random forest outcome look like?
 
 # Now, make a table for Q*?
@@ -325,107 +338,46 @@ ggplot(glmnet.predictions.by.disease, aes(x=prob,y=truth,colour=disease)) +
 # rf.epsilons, calibrated.rf.epsilons, glmnet.epsilons,
 # all.rf.Q.by.hosp, all.calibrated.rf.Q.by.hosp, all.glmnet.Q.by.hosp,
 # ls(models[[disease]])
-dump.results.df<-function(disease, model) {
-  Q.star.by.epsilon <- models[[disease]][[paste0(model,'.Q.star')]]
-  all.Q.by.hosp <- models[[disease]][[paste0('all.',model,'.Q.by.hosp')]]
-  epsilon <- models[[disease]][[paste0(model,'.epsilons')]]
+dump.base.stats<-function(disease) {
   disease.df <- models[[disease]][['disease.df']]
   crude.readmitted.n<-table(disease.df$hosp,disease.df$day_30_readmit)[,'TRUE']
   n<-c(table(disease.df$hosp))
   crude.props<-prop.table(table(disease.df$hosp,disease.df$day_30_readmit),margin=1)[,'TRUE']
-  data.frame(n,readmitted=crude.readmitted.n,prop=crude.props, Q=colMeans(all.Q.by.hosp),epsilon, Q.star=colMeans(Q.star.by.epsilon))
+  # Died during stay.
+  died.during.stay <- models[[disease]] [['died.during.stay']]
+  n.died <- c(table(died.during.stay$hosp))
+  # Length-of-stay
+  
+  dash.NAs <- function(x){
+    m<-merge(data.frame(hosp=levels(disease.df$hosp)),x,all.x=TRUE)
+    # m[is.na(m$los),'los']<-'-'
+    m
+  }
+  
+  mean.survived.los <- dash.NAs(aggregate(los~hosp,disease.df,mean))[,'los']
+  mean.died.los <- dash.NAs(aggregate(los~hosp,died.during.stay,mean))[,'los']
+  mean.both.los <- dash.NAs(aggregate(los~hosp,
+                             rbind(disease.df[c('hosp','los')], 
+                                   died.during.stay[c('hosp','los')]),
+                             mean)) [,'los']
+
+  data.frame(admitted=n+n.died, died=n.died, died.prop=n.died/(n+n.died), live.discharge=n, 
+             overall.los=mean.both.los,died.los=mean.died.los,survived.los=mean.survived.los,             
+             readmitted=crude.readmitted.n, prop=crude.props)
+}
+
+dump.results.df<-function(disease, model) {
+  all.Q.by.hosp <- models[[disease]][[paste0('all.',model,'.Q.by.hosp')]]
+  epsilon <- models[[disease]][[paste0(model,'.epsilons')]]
+  Q.star.by.epsilon <- models[[disease]][[paste0(model,'.Q.star')]]
+  data.frame(Q=colMeans(all.Q.by.hosp),epsilon, Q.star=colMeans(Q.star.by.epsilon))
+}
+
+disease.table<-function(disease, models=c('calibrated.rf','glmnet')) {
+  model.tables <- lapply(models, dump.results.df, disease=disease)
+  cbind(dump.base.stats(disease), Reduce(cbind, model.tables))
 }
 
 
-dump.glmnet.coefs<-function(disease) {
-  glmnet.model<-models[[disease]][['glmnet.predict.outcome']]
-  match(glmnet.model$lambda.1se,glmnet.model$lambda)
-  rownames(as.matrix(coef(glmnet.model)))[c(as.matrix(coef(glmnet.model)!=0))]
-}
-
-dump.glmnet.coefs('pneumonia')
-dump.glmnet.coefs('ami')
-dump.glmnet.coefs('heart_failure')
-
-dump.results.df('pneumonia','calibrated.rf')
-dump.results.df('pneumonia','glmnet')
-
-dump.results.df('ami','calibrated.rf')
-dump.results.df('ami','glmnet')
-
-colMeans(Q.star.by.epsilon)
-
-which(is.nan(Q.star.by.epsilon[,1]))
-# [1]  1089  2686  2687 17803 23448 23449 28148
-Q.star.by.epsilon[1089,]
-# So, for the 1089th person in the heart_failure cohort.
-# 4 NaNs in the Qstar? 
-# Betcha predicted prob is very very close to 1.
-# No.... 
-# They had a Q, right?
-all.Q.by.hosp[1089,] # Yep.
-
-[[paste0('.Q.star')]]
-
-
-Q.star<-function(Q, iptw, epsilons)
-  plogis(qlogis(Q) + ((1/iptw) %*% t(epsilons)))
-
-epsilons<-function(offset, iptw) {
-  glm.BFGS(x=iptw,
-           y=as.numeric(disease.df$day_30_readmit),
-           offset=offset)
-}
-
-Q.star.by.epsilon=models[['heart_failure']][['calibrated.rf.Q.star']]
-all.Q.by.hosp <- models[['heart_failure']][[paste0('all.calibrated.rf.Q.by.hosp')]]
-
-
-calibrated.rf.epsilons <- epsilons(modified.calibrated.rf.prob.of.outcome, calibrated.iptw)
-
-calibrated.rf.Q.star <- Q.star(all.calibrated.rf.Q.by.hosp, 
-                               modified.calibrated.rf.prob.of.outcome, 
-                               calibrated.rf.epsilons)
-
-
-dump.results.df('heart_failure','calibrated.rf')
-dump.results.df('heart_failure','glmnet')
-
-
-# How do I get died in hospital?
-
-
-
-# What is the crude?
-
-
-
-# I want crude proportion, Q, Q.star, n
-
-
-#                                              epsilon         Q    Q.star
-# Hôpital Pierre-Le Gardeur               2.015392e-02 0.1024162 0.1203319
-# Montreal Heart Institute                5.749029e-02 0.1038951 0.1608664
-# Centre Hospitalier Anna-Laberge         1.304867e-02 0.1051030 0.1165643
-# Hôpital Royal Victoria                  8.126758e-03 0.1046228 0.1113603
-# Hôpital de Verdun                       8.569236e-03 0.1045747 0.1116930
-# Hôpital général de Montréal             1.117099e-02 0.1058081 0.1155119
-# Hôpital général Juif                    6.344879e-02 0.1053655 0.1691232
-# Hôpital Charles Lemoyne                 4.848560e-02 0.1028010 0.1499056
-# Centre Hospitalier de St. Mary         -3.349085e+13 0.1090630 0.0000000
-# Hôpital de Saint-Eustache               3.606400e-02 0.1074955 0.1428497
-# Hôpital Notre-Dame du CHUM              8.917681e-03 0.1047806 0.1122632
-# Pav. Maisonneuve/Pav. Marcel-Lamoureux  2.171818e-02 0.1043443 0.1241385
-# Hôpital Lanaudière                      2.147830e-02 0.1048419 0.1244662
-# Hôpital Cité de La Santé                5.478672e-02 0.1043017 0.1583390
-# Hôpital du Sacre-Coeur de Montréal      2.411379e-02 0.1028581 0.1247848
-# Hôpital Saint-Luc du CHUM               3.851363e-03 0.1062316 0.1092006
-# Hôpital Regional de Saint-Jerome        2.940415e-02 0.1074037 0.1355187
-# Hôpital Pierre-Boucher                  1.174737e-02 0.1050739 0.1152648
-# Hotel-Dieu du CHUM                      3.981100e-03 0.1047767 0.1078263
-# Hôpital Santa Cabrini                   1.366625e-02 0.1055708 0.1176465
-
-
-
-
-
+disease.results.table<-sapply(prefixes, disease.table, simplify=FALSE)
+save(disease.results.table,file='tables/disease.results.table.object')

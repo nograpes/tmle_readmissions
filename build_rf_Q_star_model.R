@@ -184,11 +184,11 @@ Q.star<-function(Q, iptw, epsilons)
 
 rf.Q.star <- Q.star(all.rf.Q.by.hosp, 
                     modified.rf.prob.of.outcome, 
-					rf.epsilons)
+					          rf.epsilons)
 
 calibrated.rf.Q.star <- Q.star(all.calibrated.rf.Q.by.hosp, 
                                modified.calibrated.rf.prob.of.outcome, 
-					           calibrated.rf.epsilons)
+					                     calibrated.rf.epsilons)
 
 glmnet.Q.star <- Q.star(all.glmnet.Q.by.hosp, 
                         glmnet.prob.of.outcome, 
@@ -197,5 +197,5 @@ glmnet.Q.star <- Q.star(all.glmnet.Q.by.hosp,
 save(rf.Q.star, calibrated.rf.Q.star, glmnet.Q.star,
      rf.epsilons, calibrated.rf.epsilons, glmnet.epsilons,
      all.rf.Q.by.hosp, all.calibrated.rf.Q.by.hosp, all.glmnet.Q.by.hosp,
-	 file=output.file)
+  	 file=output.file)
 

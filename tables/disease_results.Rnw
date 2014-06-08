@@ -14,17 +14,35 @@
 
 \begin{document}
 
-%\begin{landscape}
+\begin{landscape}
 
 
 <<ami, cache=FALSE, echo=FALSE, results='asis'>>=
 suppressPackageStartupMessages(library(Hmisc))
 load(file='disease.results.table.object') # disease.results.table
 table<-disease.results.table[['ami']]
-colnames(table)<-c(n='n',readmitted='Readmitted',prop='(\\%)',Q='Q',epsilon='ε',Q.star='Q*')[colnames(table)]
+
+table$overall.los<-round(table$overall.los)
+table$died.los<-round(table$died.los)
+table$survived.los<-round(table$survived.los)
+
+colnames(table)<-c(admitted='Admitted',
+                   died='Died',
+                   died.prop='(\\%)',
+                   live.discharge='Discharged',
+                   overall.los='Admitted',
+                   died.los='Died',
+                   survived.los='Discharged',
+                   readmitted='Readmitted',
+                   prop='(\\%)',
+                   Q='Q',
+                   epsilon='ε',
+                   Q.star='Q*') [colnames(table)]
 rownames(table)<-NULL
+
+
 latex(round(table,2),file='',
-      cgroup=c("","Random Forest","GLMnet"), n.cgroup=c(3,3,3),
+      cgroup=c("","Length of stay (mean days)","","Random Forest","GLMnet"), n.cgroup=c(4,3,2,3,3),
       rowlabel="Hospital",
       caption.loc="bottom",
       caption="Acute myocardial infarction (AMI).")
@@ -35,10 +53,28 @@ latex(round(table,2),file='',
 suppressPackageStartupMessages(library(Hmisc))
 load(file='disease.results.table.object') # disease.results.table
 table<-disease.results.table[['heart_failure']]
-colnames(table)<-c(n='n',readmitted='Readmitted',prop='(\\%)',Q='Q',epsilon='ε',Q.star='Q*')[colnames(table)]
+
+table$overall.los<-round(table$overall.los)
+table$died.los<-round(table$died.los)
+table$survived.los<-round(table$survived.los)
+
+colnames(table)<-c(admitted='Admitted',
+                   died='Died',
+                   died.prop='(\\%)',
+                   live.discharge='Discharged',
+                   overall.los='Admitted',
+                   died.los='Died',
+                   survived.los='Discharged',
+                   readmitted='Readmitted',
+                   prop='(\\%)',
+                   Q='Q',
+                   epsilon='ε',
+                   Q.star='Q*') [colnames(table)]
 rownames(table)<-NULL
+
+
 latex(round(table,2),file='',
-      cgroup=c("","Random Forest","GLMnet"), n.cgroup=c(3,3,3),
+      cgroup=c("","Length of stay (mean days)","","Random Forest","GLMnet"), n.cgroup=c(4,3,2,3,3),
       rowlabel="Hospital",
       caption.loc="bottom",
       caption="Heart failure")
@@ -49,16 +85,34 @@ latex(round(table,2),file='',
 suppressPackageStartupMessages(library(Hmisc))
 load(file='disease.results.table.object') # disease.results.table
 table<-disease.results.table[['pneumonia']]
-colnames(table)<-c(n='n',readmitted='Readmitted',prop='(\\%)',Q='Q',epsilon='ε',Q.star='Q*')[colnames(table)]
+
+table$overall.los<-round(table$overall.los)
+table$died.los<-round(table$died.los)
+table$survived.los<-round(table$survived.los)
+
+colnames(table)<-c(admitted='Admitted',
+                   died='Died',
+                   died.prop='(\\%)',
+                   live.discharge='Discharged',
+                   overall.los='Admitted',
+                   died.los='Died',
+                   survived.los='Discharged',
+                   readmitted='Readmitted',
+                   prop='(\\%)',
+                   Q='Q',
+                   epsilon='ε',
+                   Q.star='Q*') [colnames(table)]
 rownames(table)<-NULL
+
+
 latex(round(table,2),file='',
-      cgroup=c("","Random Forest","GLMnet"), n.cgroup=c(3,3,3),
+      cgroup=c("","Length of stay (mean days)","","Random Forest","GLMnet"), n.cgroup=c(4,3,2,3,3),
       rowlabel="Hospital",
       caption.loc="bottom",
       caption="Pneumonia")
 @
 
 
-%\end{landscape}
+\end{landscape}
 
 \end{document}
