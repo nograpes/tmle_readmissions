@@ -74,7 +74,7 @@ invisible(gc())
 died.during.stay<-dbReadTable(con,'died_during_stay_one_year')
 
 # Now, read in all the variable names. The only thing that should be passed is the file names in disease subsets.
-for (path in paths){  
+for (path in paths){
   regex<-scan(path,what='character',quiet=TRUE)
   rows<-which(!is.na(df$admit_diag) & grepl(regex,df$admit_diag))
   disease.df<-df[rows,]
@@ -82,6 +82,5 @@ for (path in paths){
   # Died during stay
   rows2<-which(!is.na(died.during.stay$admit_diag) & grepl(regex,died.during.stay$admit_diag))
   died.during.stay<-df[rows2,]
-  
-  save(var.names,disease.df,disease.big.matrix,file=paste0(dump.dir,'/disease_',basename(path),'.object'))
+  save(died.during.stay,var.names,disease.df,disease.big.matrix,file=paste0(dump.dir,'/disease_',basename(path),'.object'))
 }
