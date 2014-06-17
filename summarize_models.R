@@ -299,6 +299,11 @@ p<-ggplot(predictions.by.disease,aes(x=prob, y=truth, group=disease, colour=dise
   scale_y_continuous('GAM smoothed actual outcome',expand=c(0,0),limits=c(0,1)) +
   scale_colour_discrete('Admission diagnosis', labels=pretty.names) +
   theme(legend.position = 'bottom',text=element_text(family="Cambria")) 
+ggsave(filename="figures/rf_calibration.png", plot=p,dpi=700,
+       width=(8.5) - (0.5*2),
+       height=((8.5 - (0.5*2))/3) + 1)
+
+
 
 
 # What about the GLM?
@@ -316,10 +321,14 @@ get.glmnet.predictions<-function(disease){
 
 glmnet.predictions.by.disease<-do.call(rbind,lapply(prefixes,get.glmnet.predictions))
 
-ggplot(glmnet.predictions.by.disease, aes(x=prob,y=truth,colour=disease)) +
+p<-ggplot(glmnet.predictions.by.disease, aes(x=prob,y=truth,colour=disease)) +
   geom_smooth(method='gam') +
   geom_abline(intercept = 0, slope = 1, colour='red') +
-  scale_x_continuous('GLM predicted probability of readmission',expand=c(0,0),limits=c(0,1)) + scale_y_continuous('Proportion readmitted (GAM Smoothed)')
+  scale_x_continuous('GLM predicted probability of readmission',expand=c(0,0),limits=c(0,1)) + scale_y_continuous('Proportion readmitted (GAM Smoothed)')+
+  theme(legend.position = 'bottom',text=element_text(family="Cambria")) 
+ggsave(filename="figures/glmnet_calibration.png", plot=p,dpi=700,
+       width=(8.5*0.75) - (0.5*2),
+       height=((8.5 - (0.5*2))/3) + 1)
 
 # A summary function for the top covariates.
 dump.glmnet.coefs<-function(disease) {
