@@ -290,6 +290,46 @@ get.oob.predictions<-function(disease){
   data.frame(disease=disease, prob=prob.of.outcome, truth=as.numeric(disease.df$day_30_readmit))
 }
 
+# Perhaps a calibration fix?
+ami.preds<-get.oob.predictions('ami')
+g.logit<-glm(truth~prob,data=ami.preds,family=binomial(link=logit))
+g.linear<-glm(truth~prob,data=ami.preds)
+g.spline.logit<-glm(truth~bs(prob),data=ami.preds,family=binomial(link=logit))
+
+ami.preds$linear.smooth<-predict(g.linear)
+ami.preds$logit.smooth<-predict(g.logit,type='response') # Basically, multiply by 2/3
+ami.preds$spline.logit<-predict(g.spline.logit,type='response')
+
+sum((g.linear$residuals)^2)
+sum((plogis(g.logit$residuals))^2)
+
+x=seq(0,1,by=0.001)
+plot(type='l',x,predict(g.logit, newdata=data.frame(prob=seq(0,1,by=0.001)),type='response'),col='red',lwd=2)
+lines(x,predict(g.spline.logit, newdata=data.frame(prob=x),type='response'),type='l',col='blue',lwd=2)
+
+range(ami.preds$logit.smooth)
+range(ami.preds$spline.logit)
+
+par(mfrow=c(2,1))
+hist(ami.preds$spline.logit)
+hist(ami.preds$logit.smooth)
+par(mfrow=c(1,1))
+
+?geom_density
+
+ggplot(m[m$variable %in% c('linear.smooth','prob','logit.smooth','spline.logit'),]) + geom_density(aes(x=value,fill=variable),alpha=0.5)
+
+range(ami.preds$spline.logit)
+
+m<-melt(ami.preds,id.vars=c('disease', 'truth'))
+head(m)
+
+ggplot(m[m$variable %in% c('logit.smooth','spline.logit'),], aes(x=value,y=truth,group=variable,colour=variable)) + 
+  geom_smooth(method=gam,size=1.25) +
+  geom_abline(intercept = 0, slope = 1, colour='black') 
+
+head(ami.preds,10)
+
 predictions.by.disease<-do.call(rbind,lapply(prefixes,get.oob.predictions))
 
 p<-ggplot(predictions.by.disease,aes(x=prob, y=truth, group=disease, colour=disease)) + 

@@ -5,7 +5,7 @@ registerDoParallel(cores=12) # Register a parallel backend -- prediction is slow
 
 # /usr/bin/R ./build_rf_Q_star_model.R --args data_dump/rf_G_model_heart_failure.object data_dump/rf_Q_model_heart_failure.object data_dump/glmnet_Q_model_heart_failure.object data_dump/rf_G_calibrated_model_heart_failure.object data_dump/rf_Q_calibrated_model_heart_failure.object data_dump/disease_heart_failure.object  data_dump/build_rf_Q_star_model.R data_dump/rf_Q_star_model_heart_failure.object  ./matrix_cache
 
-# arguments <- c('data_dump/rf_G_model_pneumonia.object','data_dump/rf_Q_model_pneumonia.object','data_dump/glmnet_Q_model_pneumonia.object','data_dump/rf_G_calibrated_model_pneumonia.object','data_dump/rf_Q_calibrated_model_pneumonia.object','data_dump/disease_pneumonia.object','data_dump/rf_Q_star_model_pneumonia.object','./matrix_cache')
+# arguments <- c('data_dump/rf_G_model_pneumonia.object','data_dump/rf_Q_model_pneumonia.object','data_dump/glmnet_Q_model_pneumonia.object','data_dump/rf_G_calibrated_model_pneumonia.object','data_dump/rf_Q_calibrated_model_pneumonia.object','data_dump/disease_pneumonia.object', 'build_rf_Q_star_model.R','data_dump/rf_Q_star_model_pneumonia.object','./matrix_cache')
 
 # /usr/bin/R ./build_rf_Q_star_model.R  --args data_dump/rf_G_model_ami.object data_dump/rf_Q_model_ami.object data_dump/glmnet_Q_model_ami.object data_dump/rf_G_calibrated_model_ami.object data_dump/rf_Q_calibrated_model_ami.object data_dump/disease_ami.object data_dump/rf_Q_star_model_ami.object ./matrix_cache
 
