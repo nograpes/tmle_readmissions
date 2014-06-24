@@ -2,6 +2,7 @@ suppressPackageStartupMessages(library(glmnet))
 suppressPackageStartupMessages(library(bigrf))
 suppressPackageStartupMessages(library(doParallel))
 registerDoParallel(cores=12) # Register a parallel backend -- prediction is slow.
+options(mc.cores=12)
 
 # /usr/bin/R ./build_rf_Q_star_model.R --args data_dump/rf_G_model_heart_failure.object data_dump/rf_Q_model_heart_failure.object data_dump/glmnet_Q_model_heart_failure.object data_dump/rf_G_calibrated_model_heart_failure.object data_dump/rf_Q_calibrated_model_heart_failure.object data_dump/disease_heart_failure.object  data_dump/build_rf_Q_star_model.R data_dump/rf_Q_star_model_heart_failure.object  ./matrix_cache
 
@@ -11,8 +12,8 @@ registerDoParallel(cores=12) # Register a parallel backend -- prediction is slow
 
 arguments<-commandArgs(trailingOnly=TRUE)
 
-G.model.file <- arguments[1]
-rf.Q.model.file <- arguments[2]
+# G.model.file <- arguments[1]
+# rf.Q.model.file <- arguments[2]
 glmnet.Q.model.file <- arguments[3]
 calibrated.G.model.file <- arguments[4]
 calibrated.rf.Q.model.file <- arguments[5]
@@ -22,40 +23,59 @@ output.file  <- arguments[8]
 matrix.cache <- arguments[9]
 
 load(object.file)
-load(G.model.file) # rf.predict.exposure
-load(rf.Q.model.file) # rf.predict.outcome
+# load(G.model.file) # rf.predict.exposure
+# load(rf.Q.model.file) # rf.predict.outcome
 load(glmnet.Q.model.file) # glmnet.predict.outcome
 
-# Since I stupidly named the variable the same in the calibrated versions, I'll have to load into an environment to avoid overwriting (masking).
-e=new.env()
-load(calibrated.G.model.file,e)
-load(calibrated.rf.Q.model.file,e)
-calibrated.rf.predict.exposure<-e[["rf.predict.exposure"]]
-calibrated.rf.predict.outcome<-e[["rf.predict.outcome"]]
-rm(e)
+# e=new.env()
+load(calibrated.G.model.file)
+load(calibrated.rf.Q.model.file)
+# calibrated.rf.predict.exposure<-e[["rf.predict.exposure"]]
+# calibrated.rf.predict.outcome<-e[["rf.predict.outcome"]]
+# rm(e)
 
 
-rf.prob.by.hosp<-function(hosp, rf.predict.outcome){
-  set.to.hosp<-disease.big.matrix
-  # Fix A to the hospital.
-  set.to.hosp[,grep('^hosp',colnames(disease.big.matrix))]<-0
-  var.name<-paste0('hosp',hosp)
-  if(var.name %in% colnames(set.to.hosp)) set.to.hosp[,var.name]<-1
-  
-  predict.by.tree<-function(tree.num,forest,data,cachepath=matrix.cache,n){
-    xtype <- as.integer(.Call("CGetType", data@address, PACKAGE = "bigmemory"))
-    tree<-forest[[tree.num]]
-    .Call('treepredictC',data@address,xtype,n,forest,tree,PACKAGE = "bigrf")$testpredclass 
-  }
-  data <- bigrf:::makex(set.to.hosp, "xtest", cachepath=matrix.cache)
-  # Use foreach instead of 
-  prediction.by.tree<-foreach(i=seq_along(rf.predict.outcome),.combine=cbind) %dopar% predict.by.tree(tree=i,forest=rf.predict.outcome,data=data,n=nrow(set.to.hosp))
-  prediction.by.tree<-prediction.by.tree == 2 # Because class 2 is true
-  # Now set all in-bag to NA
-  in.bag.mat<-sapply(rf.predict.outcome,function(tree)tree@insamp!=0)
-  prediction.by.tree[in.bag.mat]<-NA
-  (rowSums(prediction.by.tree,na.rm=TRUE) / rowSums(!in.bag.mat))
+# For a given tree, get predicted class for data
+predict.by.tree<-function(tree.num, forest, data, cachepath=matrix.cache, n){
+  xtype <- as.integer(.Call("CGetType", data@address, PACKAGE = "bigmemory"))
+  tree<-forest[[tree.num]]
+  .Call('treepredictC',data@address,xtype,n,forest,tree,PACKAGE = "bigrf")$testpredclass 
 }
+
+# This will calculate vote proportions for any rf model
+rf.probs <- function(rf.model, data, oob.only=TRUE){
+  data.pointer <- bigrf:::makex(data, "xtest", cachepath=matrix.cache)
+  # Use foreach instead of 
+  prediction.by.tree<-foreach(tree=seq_along(rf.model), .combine=cbind) %dopar% 
+    predict.by.tree(tree=tree, forest=rf.model, data=data.pointer, n=nrow(data))
+
+  # Now set all in-bag to NA
+  if(oob.only){
+    # Assume provided data is the first n of training sample.
+    in.bag.mat<-sapply(rf.model, function(tree) tree@insamp!=0)[1:nrow(data),]
+    prediction.by.tree[in.bag.mat]<-NA
+  }
+  
+  classes <- names(rf.model@ytable)
+  prediction.by.tree <- matrix(classes[prediction.by.tree], 
+                               nrow=nrow(prediction.by.tree))
+  na.to.zero <- function(x) ifelse(is.na(x),0,x)
+  votes <- t(apply(prediction.by.tree,1,function(x) na.to.zero(table(x)[classes])))
+  colnames(votes) <- classes
+  votes / rowSums(votes)
+}
+
+# This returns a disease matrix with the exposure fixed to a certain hospital.
+fixed.hosp.data <- function(hosp){
+  set.to.hosp <- disease.big.matrix # Fix A to the hospital.
+  set.to.hosp[,grep('^hosp',colnames(disease.big.matrix))] <- 0
+  var.name <- paste0('hosp',hosp)
+  if(var.name %in% colnames(set.to.hosp)) set.to.hosp[,var.name] <- 1
+  set.to.hosp
+}
+
+rf.prob.by.hosp <- function(rf.model, hosp, oob.only=TRUE)
+  rf.probs(rf.model=rf.model, data=fixed.hosp.data(hosp), oob.only=oob.only)
 
 glmnet.prob.by.hosp<-function(hosp){
   set.to.hosp<-disease.big.matrix
@@ -65,43 +85,44 @@ glmnet.prob.by.hosp<-function(hosp){
   if(var.name %in% colnames(set.to.hosp)) set.to.hosp[,var.name]<-1
   c(plogis(predict(glmnet.predict.outcome, 
                    newx=set.to.hosp, 
-				   s=glmnet.predict.outcome$lambda.1se)))  
+              		    s=glmnet.predict.outcome$lambda.1se)))  
 }
 
-# G model - RF 
-votes<-rf.predict.exposure@oobvotes
-prob<-votes/rowSums(votes)
+# G model - calibrated RF 
+votes <- rf.predict.exposure@oobvotes
+prob <- votes/rowSums(votes)
 rf.prob.of.exposure <- prob[cbind(1:length(disease.df$hosp),
-                                  match(disease.df$hosp,colnames(prob)))]
-
-# G model - Calibrated RF								  
-votes<-calibrated.rf.predict.exposure@oobvotes
-prob<-votes/rowSums(votes)
-calibrated.rf.prob.of.exposure <- prob[cbind(1:length(disease.df$hosp),
-                                       match(disease.df$hosp,colnames(prob)))]
-								  
-								  
-# Q model - RF - as observed (A=a)
-votes<-rf.predict.outcome@oobvotes
-prob<-votes/rowSums(votes)
-rf.prob.of.outcome <- prob[,"TRUE"]
+                            match(disease.df$hosp,colnames(prob)))]
 
 # Q model - calibrated RF - as observed (A=a)
-votes<-calibrated.rf.predict.outcome@oobvotes
-prob<-votes/rowSums(votes)
-calibrated.rf.prob.of.outcome <- prob[,"TRUE"]
+votes <- rf.predict.outcome@oobvotes
+prob <- votes/rowSums(votes)
+vote.prop <- prob[,"TRUE"]
+# Very important to scale the vote proportions.
+platt.scaler <- 
+  glm(disease.df$day_30_readmit ~ vote.prop, family=binomial(link='logit'))
+rf.prob.of.outcome <-  predict(platt.scaler, type='response')
 
+# Q model - calibrated RF - manipulating exposure to each of twenty levels.
+# (A=1, A=2..,A=20)
+unscaled.all.rf.Q.by.hosp<-sapply(levels(disease.df$hosp),
+                                  function(x,rf.model) 
+                                    rf.prob.by.hosp(rf.model,x)[,"TRUE"],
+                                  rf.model=rf.predict.outcome)
+
+all.rf.Q.by.hosp <- apply(unscaled.all.rf.Q.by.hosp,2, 
+                           function(x) predict(platt.scaler,
+                                               newdata=data.frame(prob=x),
+                                               type='response'))
+
+# x=levels(disease.df$hosp)[1]
+# rf.model=rf.predict.outcome
+# rf.prob.by.hosp(rf.model=rf.model, hosp=x)[,"TRUE"]
 
 # Q model - glmnet - as observed (A=a)
 glmnet.prob.of.outcome <-c(plogis(predict(glmnet.predict.outcome, 
                                           newx=disease.big.matrix, 
-										  s=glmnet.predict.outcome$lambda.1se)))  
-
-# Q model - RF - manipulating exposure to each of twenty levels. (A=1, A=2..,A=20)
-all.rf.Q.by.hosp<-sapply(levels(disease.df$hosp),rf.prob.by.hosp,rf.predict.outcome=rf.predict.outcome)
-
-# Q model - calibrated RF - manipulating exposure to each of twenty levels. (A=1, A=2..,A=20)
-all.calibrated.rf.Q.by.hosp<-sapply(levels(disease.df$hosp),rf.prob.by.hosp,rf.predict.outcome=calibrated.rf.predict.outcome)
+                                          s=glmnet.predict.outcome$lambda.1se)))  
 
 # Q model - glmnet - manipulating exposure to each of twenty levels
 # There is almost certainly a more clever way to do this:
@@ -124,16 +145,13 @@ bump.zeroes <- function(x){
 
 # Exposure
 modified.rf.prob.of.exposure <- bump.zeroes(rf.prob.of.exposure)
-modified.calibrated.rf.prob.of.exposure <- bump.zeroes(calibrated.rf.prob.of.exposure)
 
 # Outcome
 modified.rf.prob.of.outcome <- bump.zeroes(rf.prob.of.outcome)
-modified.calibrated.rf.prob.of.outcome <- bump.zeroes(calibrated.rf.prob.of.outcome)
 
 # I want to find one epsilon for each hospital.
 # Each column becomes (A==a)/g
 iptw <- exposure.mat  / modified.rf.prob.of.exposure 
-calibrated.iptw <- exposure.mat  / modified.calibrated.rf.prob.of.exposure 
 
 # You don't have to run a model for each level, since all of the iptw vars are mutually exclusive (when one is nonzero, all rest are zero) putting them all in the same model is essentially the same thing.
 
@@ -154,7 +172,7 @@ calibrated.iptw <- exposure.mat  / modified.calibrated.rf.prob.of.exposure
 # Normally, I would use the standard GLM fitter for these data.
 # It appears that sometimes the fitter, which uses Iterative Reweighted Least Squares (IRLS)
 # to fit the betas doesn't always fit well.
-# Indeed, for pneumonia, the Charles-Lemoyne variable kept flipping back and forth, and would
+# Indeed, for pneumonia, the one variable kept flipping back and forth, and would
 # never converge, despite having an extremely smooth, convex likelihood function.
 # Using BFGS, I have much better chance of convergence, and slightly better fits.
 # It is a little slow but who cares?
@@ -164,7 +182,8 @@ glm.BFGS<-function(x,y,offset=rep(plogis(0),length(Y))) {
     preds<-plogis(((x %*% betas) + qlogis(offset)))
     sum((y * log(preds)) + ((1-y)*log(1-preds)))
   }
-  setNames(optim(rep(0,ncol(x)), function(betas) abs(likelihood(betas)), method='BFGS')$par,
+  setNames(optim(rep(0,ncol(x)), 
+                 function(betas) abs(likelihood(betas)), method='BFGS')$par,
            colnames(x))
 }
 
@@ -174,10 +193,10 @@ epsilons<-function(offset, iptw) {
            offset=offset)
 }
 
+
 # I have chosen to use only the calibrated IPTW, because it is more theoretically sound. (I really don't care about accuracy here.)
-rf.epsilons <- epsilons(modified.rf.prob.of.outcome, calibrated.iptw)
-calibrated.rf.epsilons <- epsilons(modified.calibrated.rf.prob.of.outcome, calibrated.iptw)
-glmnet.epsilons <- epsilons(glmnet.prob.of.outcome, calibrated.iptw)
+rf.epsilons <- epsilons(modified.rf.prob.of.outcome, iptw)
+glmnet.epsilons <- epsilons(glmnet.prob.of.outcome, iptw)
 
 Q.star<-function(Q, iptw, epsilons)
 				plogis(qlogis(Q) + ((1/iptw) %*% t(epsilons)))
@@ -186,16 +205,12 @@ rf.Q.star <- Q.star(all.rf.Q.by.hosp,
                     modified.rf.prob.of.outcome, 
 					          rf.epsilons)
 
-calibrated.rf.Q.star <- Q.star(all.calibrated.rf.Q.by.hosp, 
-                               modified.calibrated.rf.prob.of.outcome, 
-					                     calibrated.rf.epsilons)
-
 glmnet.Q.star <- Q.star(all.glmnet.Q.by.hosp, 
                         glmnet.prob.of.outcome, 
                         glmnet.epsilons)
 
-save(rf.Q.star, calibrated.rf.Q.star, glmnet.Q.star,
-     rf.epsilons, calibrated.rf.epsilons, glmnet.epsilons,
-     all.rf.Q.by.hosp, all.calibrated.rf.Q.by.hosp, all.glmnet.Q.by.hosp,
+save(rf.Q.star, glmnet.Q.star,
+     rf.epsilons, glmnet.epsilons,
+     all.rf.Q.by.hosp, all.glmnet.Q.by.hosp,
   	 file=output.file)
 
