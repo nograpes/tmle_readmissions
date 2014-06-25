@@ -139,7 +139,7 @@ To assess the importance of the variables in predicting which hospital a patient
 % Explain random forest a bit better?
 We arbitrarily chose to grow 1200 trees, and then measured the accuracy as a function of the number of trees to ensure that growing further trees would be unlikely to significantly improve accuracy. When measuring the accuracy for each discharge, we only used trees for which the discharge was "out-of-bag" (outside the \emph{B}ootstrap \emph{AG}gregate), that is, we only used trees for which the bootstrap sample did not include the discharge.
 
-% We calibrated it based on the weights of the hospital. It was multinomial in that we predicted 20 hospitals. We measured the calibration, similarly only using out-of-bag discharges. We investigated the top 10 variables most important variables, as measured by the Gini coefficient. 
+% We calibrated it based on the weights of the hospital. It was multinomial in that we predicted 20 hospitals. We measured the calibration, similarly only using out-of-bag discharges. We investigated the top 10 varibales most important variables, as measured by the Gini coefficient. 
  
 % How we weighted -- still haven't put in how it was the *Gini* that was weighted.
 Because the model was used solely to estimate the \emph{probability} of admission to to specific hospitals (and not to predict exactly which hospital was attended), we configured the model to favour calibration over discrimination: we weighted each of the twenty predicted hospitals by the inverse of the proportion of discharges at that hospital. We multiplied each proportion used to calculate the Gini coefficient by this weight.
@@ -183,6 +183,9 @@ The data were cleaned and prepared for statistical analysis using the Postgres r
 {Rates of seeking care at a selected hospital by admission diagnosis in the island of Montreal. The numerator was the number of live discharges at the hospital, and the denominator was the number of person-years accumulated in that census tract of residence by cohort members when their admissions would have been eligible (after the first continuous year within the cohort). The areal units are census tracts.}
     \label{fig:hosp_choro}
 \end{figure}
+
+Over the course of January 2, 1996 to March 31, 2006, 482 064 people were entered into our cohort. Among these, 
+
 
 % What does the accuracy of the random forest model look like as the number of trees grows for both the Q model and the G model?
 \begin{figure}[H]
