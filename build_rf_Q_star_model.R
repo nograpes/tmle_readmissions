@@ -23,44 +23,42 @@ output.file  <- arguments[8]
 matrix.cache <- arguments[9]
 
 load(object.file)
-# load(G.model.file) # rf.predict.exposure
-# load(rf.Q.model.file) # rf.predict.outcome
 load(glmnet.Q.model.file) # glmnet.predict.outcome
-
-# e=new.env()
 load(calibrated.G.model.file)
 load(calibrated.rf.Q.model.file)
-# calibrated.rf.predict.exposure<-e[["rf.predict.exposure"]]
-# calibrated.rf.predict.outcome<-e[["rf.predict.outcome"]]
-# rm(e)
-
 
 # For a given tree, get predicted class for data
 predict.by.tree<-function(tree.num, forest, data, cachepath=matrix.cache, n){
   xtype <- as.integer(.Call("CGetType", data@address, PACKAGE = "bigmemory"))
   tree<-forest[[tree.num]]
-  .Call('treepredictC',data@address,xtype,n,forest,tree,PACKAGE = "bigrf")$testpredclass 
+  treepredict.result <- .Call('treepredictC',
+                              data@address, xtype, n, forest, tree, 
+                              PACKAGE = "bigrf")
+  sapply(seq_along(levels(forest@y)),function(c){
+    w <- treepredict.result$testpredclass == c
+    ifelse(w,tree@nodewt[treepredict.result$testprednode],0)
+  })  
 }
 
 # This will calculate vote proportions for any rf model
 rf.probs <- function(rf.model, data, oob.only=TRUE){
   data.pointer <- bigrf:::makex(data, "xtest", cachepath=matrix.cache)
   # Use foreach instead of 
-  prediction.by.tree<-foreach(tree=seq_along(rf.model), .combine=cbind) %dopar% 
-    predict.by.tree(tree=tree, forest=rf.model, data=data.pointer, n=nrow(data))
+  prediction.by.tree<-foreach(tree=seq_along(rf.model)) %dopar% 
+    predict.by.tree(tree.num=tree, forest=rf.model, data=data.pointer, n=nrow(data))
 
   # Now set all in-bag to NA
   if(oob.only){
     # Assume provided data is the first n of training sample.
     in.bag.mat<-sapply(rf.model, function(tree) tree@insamp!=0)[1:nrow(data),]
-    prediction.by.tree[in.bag.mat]<-NA
+    for(col in 1:ncol(in.bag.mat)){
+      in.bag <- in.bag.mat[,col]
+      prediction.by.tree[[col]][in.bag,] <- 0
+    }
+    # prediction.by.tree[in.bag.mat]<-NA
   }
-  
+  votes <- Reduce("+", prediction.by.tree)
   classes <- names(rf.model@ytable)
-  prediction.by.tree <- matrix(classes[prediction.by.tree], 
-                               nrow=nrow(prediction.by.tree))
-  na.to.zero <- function(x) ifelse(is.na(x),0,x)
-  votes <- t(apply(prediction.by.tree,1,function(x) na.to.zero(table(x)[classes])))
   colnames(votes) <- classes
   votes / rowSums(votes)
 }
@@ -115,10 +113,6 @@ all.rf.Q.by.hosp <- apply(unscaled.all.rf.Q.by.hosp,2,
                                                newdata=data.frame(prob=x),
                                                type='response'))
 
-# x=levels(disease.df$hosp)[1]
-# rf.model=rf.predict.outcome
-# rf.prob.by.hosp(rf.model=rf.model, hosp=x)[,"TRUE"]
-
 # Q model - glmnet - as observed (A=a)
 glmnet.prob.of.outcome <-c(plogis(predict(glmnet.predict.outcome, 
                                           newx=disease.big.matrix, 
@@ -127,7 +121,7 @@ glmnet.prob.of.outcome <-c(plogis(predict(glmnet.predict.outcome,
 # Q model - glmnet - manipulating exposure to each of twenty levels
 # There is almost certainly a more clever way to do this:
 # Calculate for baseline, and then just add in.
-all.glmnet.Q.by.hosp<-sapply(levels(disease.df$hosp),glmnet.prob.by.hosp)
+all.glmnet.Q.by.hosp <- sapply(levels(disease.df$hosp),glmnet.prob.by.hosp)
 
 # Create a matrix of indicator variables.
 ff<-~hosp-1

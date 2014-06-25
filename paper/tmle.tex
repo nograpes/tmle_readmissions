@@ -53,7 +53,7 @@
 \usepackage{float}
 
 % \usepackage[left=2.54cm, top=2.54cm, right=2.54cm, bottom=2.54cm]{geometry}
-\usepackage[left=1.27cm, top=1.27cm, right=1.27cm, bottom=1.27cm]{geometry}
+\usepackage[left=1.27cm, top=1.27cm, right=1.27cm, bottom=2.54cm]{geometry}
 
 \usepackage{pbox}
 \setmainfont[Scale=1.25]{Cambria}
@@ -83,8 +83,26 @@
 \date{\today}
 % \maketitle
 
-\section{Introduction}
+\begin{abstract}
 
+
+
+
+
+
+
+
+Background: Hospitals in the US and other jurisdictions are being financially penalized based on estimates of their effect on 30-day readmission risk, after adjustment for confounders. Although hospital administrative data is information-rich, confounder adjustment in these models tends to be crude, risking residual confounding. Non-parametric machine learning techniques can take advantage of these rich data to predict readmission, but cannot estimate the marginal risk specific hospitals.
+
+Research Design: We used a recently developed technique, targeted maximum likelihood estimation (TMLE), that allowed us to use a non-parametric machine learning technique (random forest) to take advantage of the rich confounder data, but also to estimate the marginal 30-day readmission risk for different hospitals. We used an 11-year cohort of data from 20 hospitals in Montreal, Canada, and developed three models to estimate marginal readmission risk at each of the hospitals after hospitalization for heart failure, acute myocardial infarction (AMI), and pneumonia. To control for confounding, we modeled the effect of hundreds of types of outpatient drug prescriptions, medical procedures, and diagnoses on readmission risk.
+
+Results: Within 30 days of discharge, there were 5 520 / 24 847 (22\%) heart failure readmissions, 3 183 / 20 421 (16\%) pneumonia readmissions, and 2 525 / 15 746 (16\%) AMI readmissions. Within each hospital, there was a wide variation in crude readmission risk across the twenty hospitals for pneumonia 3 183 / 20 421 (16\%), heart failure 5 520 / 24 847 (22\%), and AMI 2 525 / 15 746 (16\%). However, after control for confounding, the marginal risk for readmission within all hospitals was nearly the same (within each admission category).
+
+Conclusion: Although crude readmission risk estimates between hospitals may show wide variation, there may be little difference in marginal risks after control for confounding.
+
+\end{abstract}
+
+\section{Introduction}
 % Why is this question important to answer?
 % I refuse to put in that horrible estimate of the cost of readmissions.
 In the early eighties, hospital administrators in the US sought to reduce hospitalization costs by changing the reimbursement system. Instead of paying hospitals per day of hospitalization, hospitals were paid a fixed rate for the type of hospitalization and the procedures performed. Following implementation of this law, the length of stay at hospitals dropped dramatically, although evidence exists that is was already in decline. 
@@ -110,7 +128,7 @@ Non-parametric machine learning techinques are available that will let us accura
 Recently a new technique has been developed to estimate target parameters of interest from (possibly nonparametric)  models, the targeted maximum likelihood estimator (TMLE). To use TMLE, we fit a (possibly nonparametric) model to estimate the probability of exposure (the propensity score), and also fit another model to estimate the probability of outcome. These two probabilities are combined in a simple parametric model with a single targeted paramater. In this way, the discriminative power of non-parametric models can be used to extract estimates of parameters of interest. 
 
 % What is the study question?
-In this study, we sought to estimate the marginal risk of readmission within 30 days of discharge for three different admission diagnoses (pneumonia, heart failure, and acute myocardial infarction) for each of twenty Montreal hospitals. We used a ten-year cohort of 65 year olds, for which we had outpatient and inpatient diagnoses and procedures, and outpatient drugs prescriptions. We use a non-parametric machine learning technique, (random forest), with TMLE to take advantage of the rich confounder data and provide less biased estimates of readmission risk at each hospital. 
+In this study, we sought to estimate the marginal risk of readmission within 30 days of discharge for three different admission diagnoses (pneumonia, heart failure, and acute myocardial infarction) for each of twenty Montreal hospitals. We used a ten-year cohort of 65 year olds, for which we had outpatient and inpatient diagnoses  and procedures, and outpatient drugs prescriptions. We use a non-parametric machine learning technique, (random forest), with TMLE to take advantage of the rich confounder data and provide less biased estimates of readmission risk at each hospital. 
 
 % To estimate propensity of attending different hospitals as a function of hundreds of covariates relating to patient health, we used a non-parametric machine learning technique, random forest. We combined this propensity with a more traditional model of hospital readmissions as a function of hospital care and patient characteristics (penalized logistic regression) with a doubly robust technique, targeted maximum likelihood estimation (TMLE).
 
@@ -147,25 +165,23 @@ We believed that census tract of residence would strongly affect the probability
 \subsection{Models}
 \subsubsection{Model $g$ - probability of exposure}
 % We built a model G
-We developed a multinomial model $g$ that predicted the probability of attending each of the twenty hospitals (the exposure) as a function of all the confounders. To fit $g$ we used a random forest, a non-parametric model based on decision trees \supercite{breiman_random_2001}. 
+We developed a multinomial model $g$ that predicted the probability of attending each of the twenty hospitals (a propensity score) as a function of all the possible confounders. To estimate $g$ we used a random forest, a non-parametric model based on decision trees \supercite{breiman_random_2001}. 
 
-% Explain random forest a bit better?
-% This is wrong.
-% Our trees were decision stumps; we only used one splitting node at in each tree. 
+Random forest is an ensemble machine learning technique, in which multiple decision trees are grown on some training data. To grow each decision tree in the random forest, we sampled a bootstrap replicate of our data, and then . 
 
-We arbitrarily chose to grow 1200 trees, and then measured the accuracy as a function of the number of trees to ensure that growing further trees would be unlikely to significantly improve accuracy. When measuring the accuracy for each discharge, we only used trees for which the discharge was "out-of-bag" (outside the \emph{B}ootstrap \emph{AG}gregate), that is, we only used trees for which the bootstrap replicate did not include the discharge.
-
-% We calibrated it based on the weights of the hospital. It was multinomial in that we predicted 20 hospitals. We measured the calibration, similarly only using out-of-bag discharges. We investigated the top 10 variables most important variables, as measured by the Gini coefficient. 
- 
 % How the Gini coefficient works.
 % Make it clear that you didn't invent this.
 To assess the importance of the variables in predicting which hospital a patient will choose, for each tree, we calculate the increase in homogeneity of classes between the root of the tree and the leaves. To measure the homogeneity of classes, we repurpose a metric that is typically used to measure equality (homogeneity) of income, the Gini coefficient \supercite{gini_variabilita_1912}. The homogeneity is defined as the sum of squared proportions in each class (hospital), with a maximum of 1 (all discharges at the same hospital) and a minimum of 1/20 (the discharges were evenly divided between the 20 hospitals). If the patients within the leaves of the tree made relatively homogeneous hospital choices, this variable predicts hospital choice well.
 
+% Explain random forest a bit better?
+We arbitrarily chose to grow 1200 trees, and then measured the accuracy as a function of the number of trees to ensure that growing further trees would be unlikely to significantly improve accuracy. When measuring the accuracy for each discharge, we only used trees for which the discharge was "out-of-bag" (outside the \emph{B}ootstrap \emph{AG}gregate), that is, we only used trees for which the bootstrap sample did not include the discharge.
+
+% We calibrated it based on the weights of the hospital. It was multinomial in that we predicted 20 hospitals. We measured the calibration, similarly only using out-of-bag discharges. We investigated the top 10 variables most important variables, as measured by the Gini coefficient. 
+ 
 % How we weighted -- still haven't put in how it was the *Gini* that was weighted.
 Because the model was used solely to estimate the \emph{probability} of admission to to specific hospitals (and not to predict exactly which hospital was attended), we configured the model to favour calibration over discrimination: we weighted each of the twenty predicted hospitals by the inverse of the proportion of discharges at that hospital. We multiplied each proportion used to calculate the Gini coefficient by this weight.
 
 Random forest traditionally classifies each item by majority vote; we converted this into a probability by taking the proportion of votes for each hospital (using only out-of-bag trees for each discharge).
-% Why did we choose random forest?
 
 \subsubsection{\(Q\) model - probability of outcome}
 % We built a model Q
@@ -186,6 +202,7 @@ Gini is defined as "inequity" when used in describing a society's distribution o
 
 
 \subsubsection{Model Q* - updated targeted maximum likelihood estimation}
+To combine our both our models G and Q, we fit twenty one-parameter logistic regression models called Q*. Each model 
 
 % We updated for Q*
 To avoid convergence problems for this one parameter model, we fit the parameter using a quasi-Newton method simultaneously discovered by Broyden\supercite{broyden_convergence_1970}, Fletcher\supercite{fletcher_new_1970}, Goldfarb\supercite{goldfarb_family_1970} and Shanno\supercite{shanno_conditioning_1970} (BFGS).
@@ -200,7 +217,7 @@ The data were cleaned and prepared for statistical analysis using the Postgres r
 \begin{figure}[H]
     \includegraphics{../figures/hosp_choro.png}
     \caption[Rates of seeking care at a selected hospital by admission diagnosis.]
-      {Rates of seeking care at a selected hospital by admission diagnosis. A descriptive sentence}
+{Rates of seeking care at a selected hospital by admission diagnosis in the island of Montreal. The numerator was the number of live discharges at the hospital, and the denominator was the number of person-years accumulated in that census tract of residence by cohort members when their admissions would have been eligible (after the first continuous year within the cohort). The areal units are census tracts.}
     \label{fig:hosp_choro}
 \end{figure}
 
@@ -208,33 +225,33 @@ The data were cleaned and prepared for statistical analysis using the Postgres r
 \begin{figure}[H]
     \includegraphics{../figures/error_rate_for_hospital_choice.png}
     \caption[Error rate for random forest model of hospital choice.]
-      {Error rate for random forest model of hospital choice. A descriptive sentence.}
+      {Error rate for both random forest models of hospital choice (g) and readmission (Q) as a function of the number of trees grown. For each admission, only out-of-bag trees were used to predict the given outcome.}
     \label{fig:error_rate_for_hospital_choice}
 \end{figure}
 
 % Calibration of random forest
-\begin{figure}[H]
-    \includegraphics{../figures/rf_calibration.png}
-    \caption[Calibration for random forest model of hospital readmission.]
-      {Calibration for random forest model of hospital readmission. A descriptive sentence.}
-    \label{fig:error_rate_for_hospital_choice}
-\end{figure}
-
-% Calibration of GLMnet
-\begin{figure}[H]
-    \includegraphics{../figures/glmnet_calibration.png}
-    \caption[Calibration for GLMnet model of hospital readmission.]
-      {Calibration for GLMnet model of hospital readmission. A descriptive sentence.}
-    \label{fig:error_rate_for_hospital_choice}
-\end{figure}
+% \begin{figure}[H]
+%     \includegraphics{../figures/rf_calibration.png}
+%     \caption[Calibration for random forest model of hospital readmission.]
+%       {Calibration for random forest model of hospital readmission. A descriptive sentence.}
+%     \label{fig:error_rate_for_hospital_choice}
+% \end{figure}
+% 
+% % Calibration of GLMnet
+% \begin{figure}[H]
+%     \includegraphics{../figures/glmnet_calibration.png}
+%     \caption[Calibration for GLMnet model of hospital readmission.]
+%       {Calibration for GLMnet model of hospital readmission. A descriptive sentence.}
+%     \label{fig:error_rate_for_hospital_choice}
+% \end{figure}
 
 % What are the top 10 predictive variables for the hospitals by disease?
-\begin{figure}[H]
-    \includegraphics{../figures/top_10_variable_importance_and_hospital.png}
-    \caption[Error rate for random forest model of hospital choice.]
-      {10 most important variables for the G model, by disease. A descriptive sentence.}
-    \label{fig:top_10_variable_importance_and_hospital}
-\end{figure}
+% \begin{figure}[H]
+%     \includegraphics{../figures/top_10_variable_importance_and_hospital.png}
+%     \caption[Error rate for random forest model of hospital choice.]
+%       {10 most important variables for the G model, by disease. A descriptive sentence.}
+%     \label{fig:top_10_variable_importance_and_hospital}
+% \end{figure}
 
 % How important are the different variables for each model by class?
 \begin{figure}[H]
@@ -262,26 +279,26 @@ The data were cleaned and prepared for statistical analysis using the Postgres r
 \cline{7-9} \cline{14-16} \cline{18-20}
 \multicolumn{1}{l}{}&\multicolumn{1}{c}{Admitted}&\multicolumn{1}{c}{Died}&\multicolumn{1}{c}{(\%)}&\multicolumn{1}{c}{Discharged}&\multicolumn{1}{c}{}&\multicolumn{1}{c}{Admitted}&\multicolumn{1}{c}{Died}&\multicolumn{1}{c}{Discharged}&\multicolumn{1}{c}{}&\multicolumn{1}{c}{Readmitted}&\multicolumn{1}{c}{(\%)}&\multicolumn{1}{c}{}&\multicolumn{1}{c}{Q}&\multicolumn{1}{c}{ε}&\multicolumn{1}{c}{Q*}&\multicolumn{1}{c}{}&\multicolumn{1}{c}{Q}&\multicolumn{1}{c}{ε}&\multicolumn{1}{c}{Q*}\tabularnewline
 \hline
-1&$ 763$&$112$&$0.15$&$ 651$&&$15$&$10$&$16$&&$105$&$0.16$&&$0.25$&$-0.09$&$0.22$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
-2&$1557$&$148$&$0.10$&$1409$&&$13$&$12$&$14$&&$191$&$0.14$&&$0.25$&$-0.09$&$0.22$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
-3&$ 606$&$ 83$&$0.14$&$ 523$&&$14$&$12$&$14$&&$ 84$&$0.16$&&$0.25$&$-0.06$&$0.23$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
-4&$1022$&$125$&$0.12$&$ 897$&&$11$&$ 7$&$12$&&$136$&$0.15$&&$0.25$&$-0.08$&$0.22$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
-5&$ 729$&$150$&$0.21$&$ 579$&&$14$&$12$&$15$&&$ 98$&$0.17$&&$0.26$&$-0.05$&$0.24$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
-6&$ 826$&$119$&$0.14$&$ 707$&&$11$&$ 8$&$12$&&$106$&$0.15$&&$0.26$&$-0.06$&$0.23$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
-7&$1491$&$241$&$0.16$&$1250$&&$15$&$14$&$16$&&$216$&$0.17$&&$0.25$&$-0.04$&$0.24$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
-8&$1270$&$198$&$0.16$&$1072$&&$14$&$12$&$15$&&$138$&$0.13$&&$0.24$&$-0.11$&$0.20$&&$0.16$&$-0.01$&$0.15$\tabularnewline
-9&$ 780$&$152$&$0.19$&$ 628$&&$13$&$12$&$14$&&$130$&$0.21$&&$0.27$&$-0.09$&$0.23$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
-10&$ 778$&$124$&$0.16$&$ 654$&&$13$&$ 9$&$14$&&$123$&$0.19$&&$0.28$&$-0.04$&$0.26$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
-11&$ 705$&$125$&$0.18$&$ 580$&&$12$&$12$&$12$&&$ 97$&$0.17$&&$0.26$&$-0.06$&$0.24$&&$0.16$&$ 0.01$&$0.17$\tabularnewline
-12&$1284$&$266$&$0.21$&$1018$&&$15$&$14$&$15$&&$166$&$0.16$&&$0.25$&$-0.12$&$0.21$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
-13&$ 739$&$ 86$&$0.12$&$ 653$&&$15$&$13$&$15$&&$110$&$0.17$&&$0.26$&$-0.04$&$0.24$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
-14&$1307$&$184$&$0.14$&$1123$&&$12$&$ 8$&$13$&&$210$&$0.19$&&$0.26$&$-0.07$&$0.23$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
-15&$1152$&$168$&$0.15$&$ 984$&&$16$&$14$&$17$&&$129$&$0.13$&&$0.25$&$-0.11$&$0.21$&&$0.16$&$-0.01$&$0.15$\tabularnewline
-16&$ 408$&$ 70$&$0.17$&$ 338$&&$ 9$&$11$&$ 9$&&$ 43$&$0.13$&&$0.25$&$-0.06$&$0.23$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
-17&$ 807$&$123$&$0.15$&$ 684$&&$11$&$15$&$11$&&$134$&$0.20$&&$0.27$&$-0.04$&$0.25$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
-18&$ 894$&$144$&$0.16$&$ 750$&&$13$&$17$&$12$&&$116$&$0.15$&&$0.25$&$-0.04$&$0.24$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
-19&$ 499$&$ 94$&$0.19$&$ 405$&&$ 9$&$12$&$ 8$&&$ 50$&$0.12$&&$0.24$&$-0.08$&$0.21$&&$0.16$&$-0.01$&$0.15$\tabularnewline
-20&$1025$&$184$&$0.18$&$ 841$&&$13$&$ 9$&$14$&&$143$&$0.17$&&$0.26$&$-0.14$&$0.21$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
+1&$ 763$&$112$&$0.15$&$ 651$&&$15$&$10$&$16$&&$105$&$0.16$&&$0.16$&$ 0.00$&$0.16$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
+2&$1557$&$148$&$0.10$&$1409$&&$13$&$12$&$14$&&$191$&$0.14$&&$0.16$&$ 0.00$&$0.16$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
+3&$ 606$&$ 83$&$0.14$&$ 523$&&$14$&$12$&$14$&&$ 84$&$0.16$&&$0.16$&$ 0.00$&$0.16$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
+4&$1022$&$125$&$0.12$&$ 897$&&$11$&$ 7$&$12$&&$136$&$0.15$&&$0.16$&$ 0.00$&$0.16$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
+5&$ 729$&$150$&$0.21$&$ 579$&&$14$&$12$&$15$&&$ 98$&$0.17$&&$0.16$&$ 0.00$&$0.16$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
+6&$ 826$&$119$&$0.14$&$ 707$&&$11$&$ 8$&$12$&&$106$&$0.15$&&$0.16$&$ 0.00$&$0.16$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
+7&$1491$&$241$&$0.16$&$1250$&&$15$&$14$&$16$&&$216$&$0.17$&&$0.16$&$ 0.00$&$0.16$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
+8&$1270$&$198$&$0.16$&$1072$&&$14$&$12$&$15$&&$138$&$0.13$&&$0.16$&$-0.01$&$0.15$&&$0.16$&$-0.01$&$0.15$\tabularnewline
+9&$ 780$&$152$&$0.19$&$ 628$&&$13$&$12$&$14$&&$130$&$0.21$&&$0.16$&$ 0.00$&$0.16$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
+10&$ 778$&$124$&$0.16$&$ 654$&&$13$&$ 9$&$14$&&$123$&$0.19$&&$0.16$&$ 0.00$&$0.16$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
+11&$ 705$&$125$&$0.18$&$ 580$&&$12$&$12$&$12$&&$ 97$&$0.17$&&$0.16$&$ 0.01$&$0.17$&&$0.16$&$ 0.01$&$0.17$\tabularnewline
+12&$1284$&$266$&$0.21$&$1018$&&$15$&$14$&$15$&&$166$&$0.16$&&$0.16$&$ 0.00$&$0.16$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
+13&$ 739$&$ 86$&$0.12$&$ 653$&&$15$&$13$&$15$&&$110$&$0.17$&&$0.16$&$ 0.00$&$0.16$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
+14&$1307$&$184$&$0.14$&$1123$&&$12$&$ 8$&$13$&&$210$&$0.19$&&$0.16$&$ 0.00$&$0.16$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
+15&$1152$&$168$&$0.15$&$ 984$&&$16$&$14$&$17$&&$129$&$0.13$&&$0.16$&$-0.01$&$0.15$&&$0.16$&$-0.01$&$0.15$\tabularnewline
+16&$ 408$&$ 70$&$0.17$&$ 338$&&$ 9$&$11$&$ 9$&&$ 43$&$0.13$&&$0.16$&$ 0.00$&$0.16$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
+17&$ 807$&$123$&$0.15$&$ 684$&&$11$&$15$&$11$&&$134$&$0.20$&&$0.16$&$ 0.00$&$0.16$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
+18&$ 894$&$144$&$0.16$&$ 750$&&$13$&$17$&$12$&&$116$&$0.15$&&$0.16$&$ 0.00$&$0.16$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
+19&$ 499$&$ 94$&$0.19$&$ 405$&&$ 9$&$12$&$ 8$&&$ 50$&$0.12$&&$0.16$&$-0.01$&$0.16$&&$0.16$&$-0.01$&$0.15$\tabularnewline
+20&$1025$&$184$&$0.18$&$ 841$&&$13$&$ 9$&$14$&&$143$&$0.17$&&$0.16$&$ 0.00$&$0.16$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
 \hline
 \end{tabular}
 
@@ -300,26 +317,26 @@ The data were cleaned and prepared for statistical analysis using the Postgres r
 \cline{7-9} \cline{14-16} \cline{18-20}
 \multicolumn{1}{l}{}&\multicolumn{1}{c}{Admitted}&\multicolumn{1}{c}{Died}&\multicolumn{1}{c}{(\%)}&\multicolumn{1}{c}{Discharged}&\multicolumn{1}{c}{}&\multicolumn{1}{c}{Admitted}&\multicolumn{1}{c}{Died}&\multicolumn{1}{c}{Discharged}&\multicolumn{1}{c}{}&\multicolumn{1}{c}{Readmitted}&\multicolumn{1}{c}{(\%)}&\multicolumn{1}{c}{}&\multicolumn{1}{c}{Q}&\multicolumn{1}{c}{ε}&\multicolumn{1}{c}{Q*}&\multicolumn{1}{c}{}&\multicolumn{1}{c}{Q}&\multicolumn{1}{c}{ε}&\multicolumn{1}{c}{Q*}\tabularnewline
 \hline
-1&$1229$&$141$&$0.11$&$1088$&&$13$&$15$&$13$&&$248$&$0.23$&&$0.29$&$-0.17$&$0.23$&&$0.22$&$-0.02$&$0.21$\tabularnewline
-2&$2071$&$166$&$0.08$&$1905$&&$13$&$19$&$12$&&$441$&$0.23$&&$0.29$&$-0.07$&$0.27$&&$0.22$&$ 0.00$&$0.22$\tabularnewline
-3&$1243$&$134$&$0.11$&$1109$&&$14$&$18$&$13$&&$285$&$0.26$&&$0.30$&$-0.19$&$0.23$&&$0.22$&$-0.01$&$0.21$\tabularnewline
-4&$1076$&$122$&$0.11$&$ 954$&&$12$&$15$&$12$&&$214$&$0.22$&&$0.29$&$-0.09$&$0.26$&&$0.22$&$-0.01$&$0.22$\tabularnewline
-5&$1550$&$181$&$0.12$&$1369$&&$12$&$17$&$11$&&$288$&$0.21$&&$0.29$&$-0.14$&$0.24$&&$0.22$&$-0.01$&$0.21$\tabularnewline
-6&$ 827$&$107$&$0.13$&$ 720$&&$11$&$13$&$11$&&$128$&$0.18$&&$0.29$&$-0.12$&$0.24$&&$0.22$&$-0.02$&$0.21$\tabularnewline
-7&$2917$&$386$&$0.13$&$2531$&&$13$&$17$&$12$&&$666$&$0.26$&&$0.30$&$-0.03$&$0.29$&&$0.23$&$ 0.00$&$0.24$\tabularnewline
-8&$1456$&$197$&$0.14$&$1259$&&$12$&$19$&$11$&&$232$&$0.18$&&$0.28$&$-0.14$&$0.23$&&$0.22$&$-0.02$&$0.21$\tabularnewline
-9&$ 881$&$111$&$0.13$&$ 770$&&$13$&$21$&$12$&&$157$&$0.20$&&$0.29$&$-0.10$&$0.25$&&$0.22$&$ 0.00$&$0.22$\tabularnewline
-10&$1410$&$149$&$0.11$&$1261$&&$10$&$18$&$ 9$&&$311$&$0.25$&&$0.29$&$-0.12$&$0.25$&&$0.22$&$-0.01$&$0.22$\tabularnewline
-11&$1297$&$153$&$0.12$&$1144$&&$17$&$24$&$16$&&$258$&$0.23$&&$0.29$&$-0.11$&$0.25$&&$0.22$&$-0.02$&$0.21$\tabularnewline
-12&$1323$&$162$&$0.12$&$1161$&&$15$&$20$&$15$&&$192$&$0.17$&&$0.28$&$-0.07$&$0.25$&&$0.20$&$ 0.00$&$0.20$\tabularnewline
-13&$1231$&$102$&$0.08$&$1129$&&$16$&$21$&$15$&&$262$&$0.23$&&$0.29$&$-0.16$&$0.23$&&$0.22$&$-0.01$&$0.21$\tabularnewline
-14&$2110$&$234$&$0.11$&$1876$&&$11$&$15$&$11$&&$424$&$0.23$&&$0.29$&$-0.10$&$0.25$&&$0.22$&$-0.01$&$0.22$\tabularnewline
-15&$1389$&$190$&$0.14$&$1199$&&$18$&$20$&$17$&&$203$&$0.17$&&$0.28$&$-0.07$&$0.26$&&$0.22$&$ 0.00$&$0.22$\tabularnewline
-16&$ 681$&$ 94$&$0.14$&$ 587$&&$11$&$15$&$10$&&$111$&$0.19$&&$0.29$&$-0.12$&$0.24$&&$0.22$&$-0.03$&$0.20$\tabularnewline
-17&$1438$&$139$&$0.10$&$1299$&&$12$&$26$&$10$&&$328$&$0.25$&&$0.30$&$-0.09$&$0.27$&&$0.22$&$ 0.01$&$0.23$\tabularnewline
-18&$1984$&$212$&$0.11$&$1772$&&$14$&$24$&$13$&&$438$&$0.25$&&$0.29$&$-0.10$&$0.26$&&$0.22$&$-0.01$&$0.22$\tabularnewline
-19&$ 932$&$ 99$&$0.11$&$ 833$&&$ 9$&$15$&$ 8$&&$163$&$0.20$&&$0.29$&$-0.12$&$0.25$&&$0.22$&$-0.02$&$0.21$\tabularnewline
-20&$1048$&$167$&$0.16$&$ 881$&&$11$&$12$&$11$&&$171$&$0.19$&&$0.29$&$-0.08$&$0.26$&&$0.22$&$ 0.00$&$0.22$\tabularnewline
+1&$1229$&$141$&$0.11$&$1088$&&$13$&$15$&$13$&&$248$&$0.23$&&$0.22$&$-0.02$&$0.21$&&$0.22$&$-0.02$&$0.21$\tabularnewline
+2&$2071$&$166$&$0.08$&$1905$&&$13$&$19$&$12$&&$441$&$0.23$&&$0.22$&$ 0.00$&$0.22$&&$0.22$&$ 0.00$&$0.22$\tabularnewline
+3&$1243$&$134$&$0.11$&$1109$&&$14$&$18$&$13$&&$285$&$0.26$&&$0.22$&$-0.01$&$0.21$&&$0.22$&$-0.01$&$0.21$\tabularnewline
+4&$1076$&$122$&$0.11$&$ 954$&&$12$&$15$&$12$&&$214$&$0.22$&&$0.22$&$-0.01$&$0.22$&&$0.22$&$-0.01$&$0.22$\tabularnewline
+5&$1550$&$181$&$0.12$&$1369$&&$12$&$17$&$11$&&$288$&$0.21$&&$0.22$&$-0.01$&$0.21$&&$0.22$&$-0.01$&$0.21$\tabularnewline
+6&$ 827$&$107$&$0.13$&$ 720$&&$11$&$13$&$11$&&$128$&$0.18$&&$0.22$&$-0.02$&$0.21$&&$0.22$&$-0.02$&$0.21$\tabularnewline
+7&$2917$&$386$&$0.13$&$2531$&&$13$&$17$&$12$&&$666$&$0.26$&&$0.22$&$ 0.00$&$0.22$&&$0.23$&$ 0.00$&$0.24$\tabularnewline
+8&$1456$&$197$&$0.14$&$1259$&&$12$&$19$&$11$&&$232$&$0.18$&&$0.22$&$-0.02$&$0.21$&&$0.22$&$-0.02$&$0.21$\tabularnewline
+9&$ 881$&$111$&$0.13$&$ 770$&&$13$&$21$&$12$&&$157$&$0.20$&&$0.22$&$ 0.00$&$0.22$&&$0.22$&$ 0.00$&$0.22$\tabularnewline
+10&$1410$&$149$&$0.11$&$1261$&&$10$&$18$&$ 9$&&$311$&$0.25$&&$0.22$&$-0.01$&$0.22$&&$0.22$&$-0.01$&$0.22$\tabularnewline
+11&$1297$&$153$&$0.12$&$1144$&&$17$&$24$&$16$&&$258$&$0.23$&&$0.22$&$-0.01$&$0.21$&&$0.22$&$-0.02$&$0.21$\tabularnewline
+12&$1323$&$162$&$0.12$&$1161$&&$15$&$20$&$15$&&$192$&$0.17$&&$0.22$&$-0.01$&$0.22$&&$0.20$&$ 0.00$&$0.20$\tabularnewline
+13&$1231$&$102$&$0.08$&$1129$&&$16$&$21$&$15$&&$262$&$0.23$&&$0.22$&$-0.01$&$0.22$&&$0.22$&$-0.01$&$0.21$\tabularnewline
+14&$2110$&$234$&$0.11$&$1876$&&$11$&$15$&$11$&&$424$&$0.23$&&$0.22$&$-0.01$&$0.22$&&$0.22$&$-0.01$&$0.22$\tabularnewline
+15&$1389$&$190$&$0.14$&$1199$&&$18$&$20$&$17$&&$203$&$0.17$&&$0.22$&$ 0.00$&$0.22$&&$0.22$&$ 0.00$&$0.22$\tabularnewline
+16&$ 681$&$ 94$&$0.14$&$ 587$&&$11$&$15$&$10$&&$111$&$0.19$&&$0.22$&$-0.02$&$0.21$&&$0.22$&$-0.03$&$0.20$\tabularnewline
+17&$1438$&$139$&$0.10$&$1299$&&$12$&$26$&$10$&&$328$&$0.25$&&$0.22$&$ 0.01$&$0.23$&&$0.22$&$ 0.01$&$0.23$\tabularnewline
+18&$1984$&$212$&$0.11$&$1772$&&$14$&$24$&$13$&&$438$&$0.25$&&$0.22$&$-0.01$&$0.22$&&$0.22$&$-0.01$&$0.22$\tabularnewline
+19&$ 932$&$ 99$&$0.11$&$ 833$&&$ 9$&$15$&$ 8$&&$163$&$0.20$&&$0.22$&$-0.01$&$0.21$&&$0.22$&$-0.02$&$0.21$\tabularnewline
+20&$1048$&$167$&$0.16$&$ 881$&&$11$&$12$&$11$&&$171$&$0.19$&&$0.22$&$ 0.00$&$0.22$&&$0.22$&$ 0.00$&$0.22$\tabularnewline
 \hline
 \end{tabular}
 
@@ -338,26 +355,26 @@ The data were cleaned and prepared for statistical analysis using the Postgres r
 \cline{7-9} \cline{14-16} \cline{18-20}
 \multicolumn{1}{l}{}&\multicolumn{1}{c}{Admitted}&\multicolumn{1}{c}{Died}&\multicolumn{1}{c}{(\%)}&\multicolumn{1}{c}{Discharged}&\multicolumn{1}{c}{}&\multicolumn{1}{c}{Admitted}&\multicolumn{1}{c}{Died}&\multicolumn{1}{c}{Discharged}&\multicolumn{1}{c}{}&\multicolumn{1}{c}{Readmitted}&\multicolumn{1}{c}{(\%)}&\multicolumn{1}{c}{}&\multicolumn{1}{c}{Q}&\multicolumn{1}{c}{ε}&\multicolumn{1}{c}{Q*}&\multicolumn{1}{c}{}&\multicolumn{1}{c}{Q}&\multicolumn{1}{c}{ε}&\multicolumn{1}{c}{Q*}\tabularnewline
 \hline
-1&$1184$&$176$&$0.15$&$1008$&&$13$&$14$&$13$&&$159$&$0.16$&&$0.23$&$-0.16$&$0.18$&&$0.16$&$-0.01$&$0.15$\tabularnewline
-2&$ 199$&$ 11$&$0.06$&$ 188$&&$13$&$15$&$12$&&$ 31$&$0.16$&&$0.24$&$-0.16$&$0.19$&&$0.16$&$-0.01$&$0.15$\tabularnewline
-3&$1085$&$132$&$0.12$&$ 953$&&$13$&$15$&$13$&&$160$&$0.17$&&$0.23$&$-0.12$&$0.19$&&$0.16$&$ 0.00$&$0.15$\tabularnewline
-4&$ 863$&$ 91$&$0.11$&$ 772$&&$13$&$14$&$12$&&$113$&$0.15$&&$0.23$&$-0.10$&$0.20$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
-5&$ 923$&$147$&$0.16$&$ 776$&&$11$&$13$&$11$&&$143$&$0.18$&&$0.25$&$-0.17$&$0.19$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
-6&$ 788$&$136$&$0.17$&$ 652$&&$12$&$15$&$11$&&$ 89$&$0.14$&&$0.23$&$-0.13$&$0.19$&&$0.16$&$ 0.00$&$0.15$\tabularnewline
-7&$2194$&$228$&$0.10$&$1966$&&$15$&$16$&$14$&&$328$&$0.17$&&$0.24$&$-0.08$&$0.21$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
-8&$1485$&$243$&$0.16$&$1242$&&$11$&$14$&$11$&&$173$&$0.14$&&$0.23$&$-0.12$&$0.19$&&$0.16$&$-0.01$&$0.15$\tabularnewline
-9&$ 990$&$166$&$0.17$&$ 824$&&$15$&$16$&$15$&&$158$&$0.19$&&$0.25$&$-0.14$&$0.20$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
-10&$1214$&$139$&$0.11$&$1075$&&$11$&$14$&$11$&&$181$&$0.17$&&$0.23$&$-0.12$&$0.19$&&$0.16$&$ 0.00$&$0.15$\tabularnewline
-11&$ 892$&$147$&$0.16$&$ 745$&&$14$&$20$&$14$&&$119$&$0.16$&&$0.24$&$-0.10$&$0.20$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
-12&$1102$&$185$&$0.17$&$ 917$&&$14$&$13$&$15$&&$ 91$&$0.10$&&$0.22$&$-0.18$&$0.16$&&$0.15$&$-0.04$&$0.12$\tabularnewline
-13&$1914$&$204$&$0.11$&$1710$&&$14$&$14$&$14$&&$325$&$0.19$&&$0.24$&$-0.07$&$0.22$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
-14&$1980$&$278$&$0.14$&$1702$&&$11$&$12$&$11$&&$263$&$0.15$&&$0.23$&$-0.12$&$0.19$&&$0.16$&$-0.01$&$0.15$\tabularnewline
-15&$1365$&$179$&$0.13$&$1186$&&$11$&$14$&$11$&&$163$&$0.14$&&$0.23$&$-0.12$&$0.19$&&$0.16$&$-0.01$&$0.15$\tabularnewline
-16&$ 541$&$ 77$&$0.14$&$ 464$&&$13$&$17$&$12$&&$ 46$&$0.10$&&$0.22$&$-0.11$&$0.19$&&$0.16$&$-0.01$&$0.15$\tabularnewline
-17&$1338$&$163$&$0.12$&$1175$&&$10$&$18$&$ 9$&&$193$&$0.16$&&$0.24$&$-0.10$&$0.20$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
-18&$1356$&$168$&$0.12$&$1188$&&$15$&$22$&$14$&&$200$&$0.17$&&$0.23$&$-0.09$&$0.20$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
-19&$1020$&$123$&$0.12$&$ 897$&&$10$&$19$&$ 9$&&$122$&$0.14$&&$0.23$&$-0.13$&$0.18$&&$0.16$&$-0.02$&$0.14$\tabularnewline
-20&$1152$&$171$&$0.15$&$ 981$&&$15$&$16$&$14$&&$126$&$0.13$&&$0.23$&$-0.10$&$0.20$&&$0.16$&$ 0.00$&$0.15$\tabularnewline
+1&$1184$&$176$&$0.15$&$1008$&&$13$&$14$&$13$&&$159$&$0.16$&&$0.16$&$-0.01$&$0.15$&&$0.16$&$-0.01$&$0.15$\tabularnewline
+2&$ 199$&$ 11$&$0.06$&$ 188$&&$13$&$15$&$12$&&$ 31$&$0.16$&&$0.16$&$-0.01$&$0.15$&&$0.16$&$-0.01$&$0.15$\tabularnewline
+3&$1085$&$132$&$0.12$&$ 953$&&$13$&$15$&$13$&&$160$&$0.17$&&$0.16$&$ 0.00$&$0.16$&&$0.16$&$ 0.00$&$0.15$\tabularnewline
+4&$ 863$&$ 91$&$0.11$&$ 772$&&$13$&$14$&$12$&&$113$&$0.15$&&$0.16$&$ 0.00$&$0.16$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
+5&$ 923$&$147$&$0.16$&$ 776$&&$11$&$13$&$11$&&$143$&$0.18$&&$0.16$&$ 0.00$&$0.16$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
+6&$ 788$&$136$&$0.17$&$ 652$&&$12$&$15$&$11$&&$ 89$&$0.14$&&$0.16$&$ 0.00$&$0.15$&&$0.16$&$ 0.00$&$0.15$\tabularnewline
+7&$2194$&$228$&$0.10$&$1966$&&$15$&$16$&$14$&&$328$&$0.17$&&$0.16$&$ 0.00$&$0.16$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
+8&$1485$&$243$&$0.16$&$1242$&&$11$&$14$&$11$&&$173$&$0.14$&&$0.16$&$-0.01$&$0.15$&&$0.16$&$-0.01$&$0.15$\tabularnewline
+9&$ 990$&$166$&$0.17$&$ 824$&&$15$&$16$&$15$&&$158$&$0.19$&&$0.16$&$ 0.00$&$0.16$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
+10&$1214$&$139$&$0.11$&$1075$&&$11$&$14$&$11$&&$181$&$0.17$&&$0.16$&$ 0.00$&$0.16$&&$0.16$&$ 0.00$&$0.15$\tabularnewline
+11&$ 892$&$147$&$0.16$&$ 745$&&$14$&$20$&$14$&&$119$&$0.16$&&$0.16$&$ 0.00$&$0.16$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
+12&$1102$&$185$&$0.17$&$ 917$&&$14$&$13$&$15$&&$ 91$&$0.10$&&$0.16$&$-0.03$&$0.13$&&$0.15$&$-0.04$&$0.12$\tabularnewline
+13&$1914$&$204$&$0.11$&$1710$&&$14$&$14$&$14$&&$325$&$0.19$&&$0.16$&$ 0.00$&$0.16$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
+14&$1980$&$278$&$0.14$&$1702$&&$11$&$12$&$11$&&$263$&$0.15$&&$0.16$&$-0.01$&$0.15$&&$0.16$&$-0.01$&$0.15$\tabularnewline
+15&$1365$&$179$&$0.13$&$1186$&&$11$&$14$&$11$&&$163$&$0.14$&&$0.16$&$ 0.00$&$0.15$&&$0.16$&$-0.01$&$0.15$\tabularnewline
+16&$ 541$&$ 77$&$0.14$&$ 464$&&$13$&$17$&$12$&&$ 46$&$0.10$&&$0.16$&$-0.01$&$0.15$&&$0.16$&$-0.01$&$0.15$\tabularnewline
+17&$1338$&$163$&$0.12$&$1175$&&$10$&$18$&$ 9$&&$193$&$0.16$&&$0.16$&$ 0.01$&$0.16$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
+18&$1356$&$168$&$0.12$&$1188$&&$15$&$22$&$14$&&$200$&$0.17$&&$0.16$&$ 0.01$&$0.16$&&$0.16$&$ 0.00$&$0.16$\tabularnewline
+19&$1020$&$123$&$0.12$&$ 897$&&$10$&$19$&$ 9$&&$122$&$0.14$&&$0.16$&$-0.02$&$0.14$&&$0.16$&$-0.02$&$0.14$\tabularnewline
+20&$1152$&$171$&$0.15$&$ 981$&&$15$&$16$&$14$&&$126$&$0.13$&&$0.16$&$ 0.00$&$0.16$&&$0.16$&$ 0.00$&$0.15$\tabularnewline
 \hline
 \end{tabular}
 
@@ -375,7 +392,7 @@ The data were cleaned and prepared for statistical analysis using the Postgres r
 \section{Discussion}
 
 % The introduction
-In this study, we estimated marginal risk of 30-day readmission adjusted for patient readmission risk in twenty Montreal hospitals, and found that the risk differences were not nearly as strong as the crude readmission risk suggested.
+In this study, we estimated marginal risk of 30-day readmission adjusted for patient readmission risk in twenty Montreal hospitals, and found that the marginal risk differences were not nearly as strong as the crude readmission risk suggested.
 
 % On the preventability of readmissions.
 Several readmission risk models have been criticized on the basis that they failed to distinguish preventable readmissions from readmissions due to chance alone. Despite evidence that clincians cannot reliably distinguish preventable and non-preventable readmissions, pairs of diagnosis codes have been developed that are "potentially preventable". For example, following a hospitalization for surgery, a readmission for infection would be considered preventable, but a readmission for trauma would not.
@@ -404,7 +421,6 @@ Differing \emph{admission} practices can strongly affect the rates of readmissio
 
 % The influenza cohort.
 Entry to our cohort was dependent on having one diagnosis of a respiratory illness in an inpatient or outpatient setting. 
-
 
 
 % Differential misclassification due to coding practices.

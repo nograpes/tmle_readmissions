@@ -48,35 +48,37 @@ get.accuracy<-function(rf.predict.exposure, truth){
   unname(sapply(seq_along(rf.predict.exposure),extract.by.tree.num))
 }
 
-# sapply only assigns names if X is a character. Annoying, but maybe for the best.
+# Exposure
 rf.exposure.accuracy.by.disease <- sapply(models,function(x) 
-  get.accuracy(x[['rf.predict.exposure']], x$disease.df$hosp))
-
-calibrated.rf.exposure.accuracy.by.disease <- sapply(models,function(x) 
   get.accuracy(x[['calibrated.rf.predict.exposure']], x$disease.df$hosp))
 
 colnames(rf.exposure.accuracy.by.disease) <- 
   pretty.names[names(models)]
 
-colnames(calibrated.rf.exposure.accuracy.by.disease) <- 
+# Outcome
+rf.outcome.accuracy.by.disease <- sapply(models,function(x) 
+  get.accuracy(x[['calibrated.rf.predict.outcome']], 1))
+
+colnames(rf.outcome.accuracy.by.disease) <- 
   pretty.names[names(models)]
 
-accuracy.df<-melt(rf.exposure.accuracy.by.disease,
+exposure.accuracy.df<-melt(rf.exposure.accuracy.by.disease,
                   varnames = c('trees', 'disease'),
                   value.name = 'accuracy')
 
-calibrated.accuracy.df<-melt(calibrated.rf.exposure.accuracy.by.disease,
+outcome.accuracy.df<-melt(rf.outcome.accuracy.by.disease,
                   varnames = c('trees', 'disease'),
                   value.name = 'accuracy')
 
-both.accuracy.df<-rbind(data.frame(accuracy.df,type='Uncalibrated'),
-                        data.frame(calibrated.accuracy.df,type='Calibrated'))
+
+both.accuracy.df<-rbind(data.frame(exposure.accuracy.df,type='G model (Exposure - Hospital choice)'),
+                        data.frame(outcome.accuracy.df,type='Q model (Outcome - Readmission)'))
 
 p<-ggplot(both.accuracy.df,
           aes(x=trees,
               y=1-accuracy,
-              col=disease)) + 
-  facet_grid(.~type) +
+              col=disease)) +
+  facet_grid(type~.) +
   geom_line(size=1.5) +
   labs(x='Number of trees',
        y='Error rate (out-of-bag)') +
@@ -422,7 +424,7 @@ dump.results.df<-function(disease, model) {
   data.frame(Q=colMeans(all.Q.by.hosp),epsilon, Q.star=colMeans(Q.star.by.epsilon))
 }
 
-disease.table<-function(disease, models=c('calibrated.rf','glmnet')) {
+disease.table<-function(disease, models=c('rf','glmnet')) {
   model.tables <- lapply(models, dump.results.df, disease=disease)
   cbind(dump.base.stats(disease), Reduce(cbind, model.tables))
 }

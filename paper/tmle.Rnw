@@ -4,7 +4,7 @@
 \usepackage{float}
 
 % \usepackage[left=2.54cm, top=2.54cm, right=2.54cm, bottom=2.54cm]{geometry}
-\usepackage[left=1.27cm, top=1.27cm, right=1.27cm, bottom=1.27cm]{geometry}
+\usepackage[left=1.27cm, top=1.27cm, right=1.27cm, bottom=2.54cm]{geometry}
 
 \usepackage{pbox}
 \setmainfont[Scale=1.25]{Cambria}
@@ -33,8 +33,39 @@
 \date{\today}
 % \maketitle
 
-\section{Introduction}
+\begin{abstract}
 
+<<formatterFunctions, include=FALSE>>=
+  num <- function(x) format(x, big.mark=' ')
+@
+
+
+<<preChunk, include=FALSE>>=
+  load(file='~/repo/thesis/code/tmle/tables/disease.results.table.object') # disease.results.table
+
+  readmitted <- sapply(disease.results.table, function(x) sum(x$readmitted))
+  discharged <- sapply(disease.results.table, function(x) sum(x$live.discharge))
+
+  readmission.range <- function(disease)
+    paste0('(',paste(round(range(disease.results.table[['ami']]$prop)*100),collapse='-'),'%)')
+
+  readmission.props <- function(disease)
+                paste0(paste0(num(readmitted[disease]),' / ',num(discharged[disease])),
+                      ' (',round(readmitted[disease]*100 / discharged[disease],0),'\\%)')
+
+@
+
+Background: Hospitals in the US and other jurisdictions are being financially penalized based on estimates of their effect on 30-day readmission risk, after adjustment for confounders. Although hospital administrative data is information-rich, confounder adjustment in these models tends to be crude, risking residual confounding. Non-parametric machine learning techniques can take advantage of these rich data to predict readmission, but cannot estimate the marginal risk specific hospitals.
+
+Research Design: We used a recently developed technique, targeted maximum likelihood estimation (TMLE), that allowed us to use a non-parametric machine learning technique (random forest) to take advantage of the rich confounder data, but also to estimate the marginal 30-day readmission risk for different hospitals. We used an 11-year cohort of data from 20 hospitals in Montreal, Canada, and developed three models to estimate marginal readmission risk at each of the hospitals after hospitalization for heart failure, acute myocardial infarction (AMI), and pneumonia. To control for confounding, we modeled the effect of hundreds of types of outpatient drug prescriptions, medical procedures, and diagnoses on readmission risk.
+
+Results: Within 30 days of discharge, there were \Sexpr{readmission.props('heart_failure')} heart failure readmissions, \Sexpr{readmission.props('pneumonia')} pneumonia readmissions, and \Sexpr{readmission.props('ami')} AMI readmissions. Within each hospital, there was a wide variation in crude readmission risk across the twenty hospitals for pneumonia \Sexpr{readmission.props('pneumonia')}, heart failure \Sexpr{readmission.props('heart_failure')}, and AMI \Sexpr{readmission.props('ami')}. However, after control for confounding, the marginal risk for readmission within all hospitals was nearly the same (within each admission category).
+
+Conclusion: Although crude readmission risk estimates between hospitals may show wide variation, there may be little difference in marginal risks after control for confounding.
+
+\end{abstract}
+
+\section{Introduction}
 % Why is this question important to answer?
 % I refuse to put in that horrible estimate of the cost of readmissions.
 In the early eighties, hospital administrators in the US sought to reduce hospitalization costs by changing the reimbursement system. Instead of paying hospitals per day of hospitalization, hospitals were paid a fixed rate for the type of hospitalization and the procedures performed. Following implementation of this law, the length of stay at hospitals dropped dramatically, although evidence exists that is was already in decline. 
@@ -60,7 +91,7 @@ Non-parametric machine learning techinques are available that will let us accura
 Recently a new technique has been developed to estimate target parameters of interest from (possibly nonparametric)  models, the targeted maximum likelihood estimator (TMLE). To use TMLE, we fit a (possibly nonparametric) model to estimate the probability of exposure (the propensity score), and also fit another model to estimate the probability of outcome. These two probabilities are combined in a simple parametric model with a single targeted paramater. In this way, the discriminative power of non-parametric models can be used to extract estimates of parameters of interest. 
 
 % What is the study question?
-In this study, we sought to estimate the marginal risk of readmission within 30 days of discharge for three different admission diagnoses (pneumonia, heart failure, and acute myocardial infarction) for each of twenty Montreal hospitals. We used a ten-year cohort of 65 year olds, for which we had outpatient and inpatient diagnoses and procedures, and outpatient drugs prescriptions. We use a non-parametric machine learning technique, (random forest), with TMLE to take advantage of the rich confounder data and provide less biased estimates of readmission risk at each hospital. 
+In this study, we sought to estimate the marginal risk of readmission within 30 days of discharge for three different admission diagnoses (pneumonia, heart failure, and acute myocardial infarction) for each of twenty Montreal hospitals. We used a ten-year cohort of 65 year olds, for which we had outpatient and inpatient diagnoses  and procedures, and outpatient drugs prescriptions. We use a non-parametric machine learning technique, (random forest), with TMLE to take advantage of the rich confounder data and provide less biased estimates of readmission risk at each hospital. 
 
 % To estimate propensity of attending different hospitals as a function of hundreds of covariates relating to patient health, we used a non-parametric machine learning technique, random forest. We combined this propensity with a more traditional model of hospital readmissions as a function of hospital care and patient characteristics (penalized logistic regression) with a doubly robust technique, targeted maximum likelihood estimation (TMLE).
 
@@ -97,25 +128,23 @@ We believed that census tract of residence would strongly affect the probability
 \subsection{Models}
 \subsubsection{Model $g$ - probability of exposure}
 % We built a model G
-We developed a multinomial model $g$ that predicted the probability of attending each of the twenty hospitals (the exposure) as a function of all the confounders. To fit $g$ we used a random forest, a non-parametric model based on decision trees \supercite{breiman_random_2001}. 
+We developed a multinomial model $g$ that predicted the probability of attending each of the twenty hospitals (a propensity score) as a function of all the possible confounders. To estimate $g$ we used a random forest, a non-parametric model based on decision trees \supercite{breiman_random_2001}. 
 
-% Explain random forest a bit better?
-% This is wrong.
-% Our trees were decision stumps; we only used one splitting node at in each tree. 
+Random forest is an ensemble machine learning technique, in which multiple decision trees are grown on some training data. To grow each decision tree in the random forest, we sampled a bootstrap replicate of our data, and then . 
 
-We arbitrarily chose to grow 1200 trees, and then measured the accuracy as a function of the number of trees to ensure that growing further trees would be unlikely to significantly improve accuracy. When measuring the accuracy for each discharge, we only used trees for which the discharge was "out-of-bag" (outside the \emph{B}ootstrap \emph{AG}gregate), that is, we only used trees for which the bootstrap replicate did not include the discharge.
-
-% We calibrated it based on the weights of the hospital. It was multinomial in that we predicted 20 hospitals. We measured the calibration, similarly only using out-of-bag discharges. We investigated the top 10 variables most important variables, as measured by the Gini coefficient. 
- 
 % How the Gini coefficient works.
 % Make it clear that you didn't invent this.
 To assess the importance of the variables in predicting which hospital a patient will choose, for each tree, we calculate the increase in homogeneity of classes between the root of the tree and the leaves. To measure the homogeneity of classes, we repurpose a metric that is typically used to measure equality (homogeneity) of income, the Gini coefficient \supercite{gini_variabilita_1912}. The homogeneity is defined as the sum of squared proportions in each class (hospital), with a maximum of 1 (all discharges at the same hospital) and a minimum of 1/20 (the discharges were evenly divided between the 20 hospitals). If the patients within the leaves of the tree made relatively homogeneous hospital choices, this variable predicts hospital choice well.
 
+% Explain random forest a bit better?
+We arbitrarily chose to grow 1200 trees, and then measured the accuracy as a function of the number of trees to ensure that growing further trees would be unlikely to significantly improve accuracy. When measuring the accuracy for each discharge, we only used trees for which the discharge was "out-of-bag" (outside the \emph{B}ootstrap \emph{AG}gregate), that is, we only used trees for which the bootstrap sample did not include the discharge.
+
+% We calibrated it based on the weights of the hospital. It was multinomial in that we predicted 20 hospitals. We measured the calibration, similarly only using out-of-bag discharges. We investigated the top 10 variables most important variables, as measured by the Gini coefficient. 
+ 
 % How we weighted -- still haven't put in how it was the *Gini* that was weighted.
 Because the model was used solely to estimate the \emph{probability} of admission to to specific hospitals (and not to predict exactly which hospital was attended), we configured the model to favour calibration over discrimination: we weighted each of the twenty predicted hospitals by the inverse of the proportion of discharges at that hospital. We multiplied each proportion used to calculate the Gini coefficient by this weight.
 
 Random forest traditionally classifies each item by majority vote; we converted this into a probability by taking the proportion of votes for each hospital (using only out-of-bag trees for each discharge).
-% Why did we choose random forest?
 
 \subsubsection{\(Q\) model - probability of outcome}
 % We built a model Q
@@ -136,6 +165,7 @@ Gini is defined as "inequity" when used in describing a society's distribution o
 
 
 \subsubsection{Model Q* - updated targeted maximum likelihood estimation}
+To combine our both our models G and Q, we fit twenty one-parameter logistic regression models called Q*. Each model 
 
 % We updated for Q*
 To avoid convergence problems for this one parameter model, we fit the parameter using a quasi-Newton method simultaneously discovered by Broyden\supercite{broyden_convergence_1970}, Fletcher\supercite{fletcher_new_1970}, Goldfarb\supercite{goldfarb_family_1970} and Shanno\supercite{shanno_conditioning_1970} (BFGS).
@@ -150,7 +180,7 @@ The data were cleaned and prepared for statistical analysis using the Postgres r
 \begin{figure}[H]
     \includegraphics{../figures/hosp_choro.png}
     \caption[Rates of seeking care at a selected hospital by admission diagnosis.]
-      {Rates of seeking care at a selected hospital by admission diagnosis. A descriptive sentence}
+{Rates of seeking care at a selected hospital by admission diagnosis in the island of Montreal. The numerator was the number of live discharges at the hospital, and the denominator was the number of person-years accumulated in that census tract of residence by cohort members when their admissions would have been eligible (after the first continuous year within the cohort). The areal units are census tracts.}
     \label{fig:hosp_choro}
 \end{figure}
 
@@ -158,33 +188,33 @@ The data were cleaned and prepared for statistical analysis using the Postgres r
 \begin{figure}[H]
     \includegraphics{../figures/error_rate_for_hospital_choice.png}
     \caption[Error rate for random forest model of hospital choice.]
-      {Error rate for random forest model of hospital choice. A descriptive sentence.}
+      {Error rate for both random forest models of hospital choice (g) and readmission (Q) as a function of the number of trees grown. For each admission, only out-of-bag trees were used to predict the given outcome.}
     \label{fig:error_rate_for_hospital_choice}
 \end{figure}
 
 % Calibration of random forest
-\begin{figure}[H]
-    \includegraphics{../figures/rf_calibration.png}
-    \caption[Calibration for random forest model of hospital readmission.]
-      {Calibration for random forest model of hospital readmission. A descriptive sentence.}
-    \label{fig:error_rate_for_hospital_choice}
-\end{figure}
-
-% Calibration of GLMnet
-\begin{figure}[H]
-    \includegraphics{../figures/glmnet_calibration.png}
-    \caption[Calibration for GLMnet model of hospital readmission.]
-      {Calibration for GLMnet model of hospital readmission. A descriptive sentence.}
-    \label{fig:error_rate_for_hospital_choice}
-\end{figure}
+% \begin{figure}[H]
+%     \includegraphics{../figures/rf_calibration.png}
+%     \caption[Calibration for random forest model of hospital readmission.]
+%       {Calibration for random forest model of hospital readmission. A descriptive sentence.}
+%     \label{fig:error_rate_for_hospital_choice}
+% \end{figure}
+% 
+% % Calibration of GLMnet
+% \begin{figure}[H]
+%     \includegraphics{../figures/glmnet_calibration.png}
+%     \caption[Calibration for GLMnet model of hospital readmission.]
+%       {Calibration for GLMnet model of hospital readmission. A descriptive sentence.}
+%     \label{fig:error_rate_for_hospital_choice}
+% \end{figure}
 
 % What are the top 10 predictive variables for the hospitals by disease?
-\begin{figure}[H]
-    \includegraphics{../figures/top_10_variable_importance_and_hospital.png}
-    \caption[Error rate for random forest model of hospital choice.]
-      {10 most important variables for the G model, by disease. A descriptive sentence.}
-    \label{fig:top_10_variable_importance_and_hospital}
-\end{figure}
+% \begin{figure}[H]
+%     \includegraphics{../figures/top_10_variable_importance_and_hospital.png}
+%     \caption[Error rate for random forest model of hospital choice.]
+%       {10 most important variables for the G model, by disease. A descriptive sentence.}
+%     \label{fig:top_10_variable_importance_and_hospital}
+% \end{figure}
 
 % How important are the different variables for each model by class?
 \begin{figure}[H]
@@ -306,7 +336,7 @@ latex(round(table,2),file='',
 \section{Discussion}
 
 % The introduction
-In this study, we estimated marginal risk of 30-day readmission adjusted for patient readmission risk in twenty Montreal hospitals, and found that the risk differences were not nearly as strong as the crude readmission risk suggested.
+In this study, we estimated marginal risk of 30-day readmission adjusted for patient readmission risk in twenty Montreal hospitals, and found that the marginal risk differences were not nearly as strong as the crude readmission risk suggested.
 
 % On the preventability of readmissions.
 Several readmission risk models have been criticized on the basis that they failed to distinguish preventable readmissions from readmissions due to chance alone. Despite evidence that clincians cannot reliably distinguish preventable and non-preventable readmissions, pairs of diagnosis codes have been developed that are "potentially preventable". For example, following a hospitalization for surgery, a readmission for infection would be considered preventable, but a readmission for trauma would not.
