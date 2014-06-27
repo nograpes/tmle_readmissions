@@ -88,9 +88,9 @@ glmnet.prob.by.hosp<-function(hosp){
 
 # G model - calibrated RF 
 votes <- rf.predict.exposure@oobvotes
-prob <- votes/rowSums(votes)
-rf.prob.of.exposure <- prob[cbind(1:length(disease.df$hosp),
-                            match(disease.df$hosp,colnames(prob)))]
+rf.prob.of.exposure <- votes/rowSums(votes)
+# rf.prob.of.exposure <- prob[cbind(1:length(disease.df$hosp),
+#                             match(disease.df$hosp,colnames(prob)))]
 
 # Q model - calibrated RF - as observed (A=a)
 votes <- rf.predict.outcome@oobvotes
@@ -145,6 +145,7 @@ modified.rf.prob.of.outcome <- bump.zeroes(rf.prob.of.outcome)
 
 # I want to find one epsilon for each hospital.
 # Each column becomes (A==a)/g
+# iptw <- exposure.mat  / modified.rf.prob.of.exposure 
 iptw <- exposure.mat  / modified.rf.prob.of.exposure 
 
 # You don't have to run a model for each level, since all of the iptw vars are mutually exclusive (when one is nonzero, all rest are zero) putting them all in the same model is essentially the same thing.
@@ -173,10 +174,10 @@ iptw <- exposure.mat  / modified.rf.prob.of.exposure
 # Plus the names don't get mucked up because of rowname character restrictions.
 glm.BFGS<-function(x,y,offset=rep(plogis(0),length(Y))) {
   likelihood<-function(betas) {
-    preds<-plogis(((x %*% betas) + qlogis(offset)))
+    preds<-plogis(((x %*% t(betas)) + qlogis(offset)))
     sum((y * log(preds)) + ((1-y)*log(1-preds)))
   }
-  setNames(optim(rep(0,ncol(x)), 
+  setNames(optim(rep(0,ncol(as.matrix(x))), 
                  function(betas) abs(likelihood(betas)), method='BFGS')$par,
            colnames(x))
 }
@@ -187,21 +188,27 @@ epsilons<-function(offset, iptw) {
            offset=offset)
 }
 
+# Offset needs to change every time.
+# IPTW needs to change every time.
 
 # I have chosen to use only the calibrated IPTW, because it is more theoretically sound. (I really don't care about accuracy here.)
-rf.epsilons <- epsilons(offset=modified.rf.prob.of.outcome, iptw=iptw)
-glmnet.epsilons <- epsilons(offset=glmnet.prob.of.outcome, iptw=iptw)
+# rf.epsilons <- epsilons(offset=modified.rf.prob.of.outcome, iptw=iptw)
+# glmnet.epsilons <- epsilons(offset=glmnet.prob.of.outcome, iptw=iptw)
+rf.epsilons <- mapply(epsilons, offset=data.frame(all.rf.Q.by.hosp) ,iptw=data.frame(iptw))
+glmnet.epsilons <- mapply(epsilons, offset=data.frame(all.glmnet.Q.by.hosp) ,iptw=data.frame(iptw))
 
 Q.star<-function(Q, iptw, epsilons)
-				plogis(qlogis(Q) + ((1/iptw) %*% t(epsilons)))
+				plogis(qlogis(Q) + ((1/iptw) %*% epsilons))
 
-rf.Q.star <- Q.star(all.rf.Q.by.hosp, 
-                    iptw=iptw, 
-					          rf.epsilons)
+mapply(Q, iptw, )	
+	
+# rf.Q.star <- Q.star(all.rf.Q.by.hosp, 
+#                     iptw=iptw, 
+# 	 				  rf.epsilons)
 
-glmnet.Q.star <- Q.star(all.glmnet.Q.by.hosp, 
-                        iptw=iptw, 
-                        glmnet.epsilons)
+# glmnet.Q.star <- Q.star(all.glmnet.Q.by.hosp, 
+#                         iptw=iptw, 
+#                         glmnet.epsilons)
 
 save(rf.Q.star, glmnet.Q.star,
      rf.epsilons, glmnet.epsilons,

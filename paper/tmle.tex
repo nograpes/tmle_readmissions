@@ -51,6 +51,7 @@
 \usepackage{fontspec}
 \usepackage{graphicx}
 \usepackage{float}
+\usepackage[hidelinks]{hyperref} % For linking Github
 
 % \usepackage[left=2.54cm, top=2.54cm, right=2.54cm, bottom=2.54cm]{geometry}
 \usepackage[left=1.27cm, top=1.27cm, right=1.27cm, bottom=2.54cm]{geometry}
@@ -72,7 +73,6 @@
 % If you use Biber, then you will have to compile and recompile.
 % But Biber seems to be the preferred choice.
 \usepackage[backend=biber,sorting=none,style=numeric-comp]{biblatex} 
-
 
 \addbibresource{tmle.bib} % Critical that you put .bib in here!
 \IfFileExists{upquote.sty}{\usepackage{upquote}}{}
@@ -176,7 +176,7 @@ To assess the importance of the variables in predicting which hospital a patient
 % Explain random forest a bit better?
 We arbitrarily chose to grow 1200 trees, and then measured the accuracy as a function of the number of trees to ensure that growing further trees would be unlikely to significantly improve accuracy. When measuring the accuracy for each discharge, we only used trees for which the discharge was "out-of-bag" (outside the \emph{B}ootstrap \emph{AG}gregate), that is, we only used trees for which the bootstrap sample did not include the discharge.
 
-% We calibrated it based on the weights of the hospital. It was multinomial in that we predicted 20 hospitals. We measured the calibration, similarly only using out-of-bag discharges. We investigated the top 10 variables most important variables, as measured by the Gini coefficient. 
+% We calibrated it based on the weights of the hospital. It was multinomial in that we predicted 20 hospitals. We measured the calibration, similarly only using out-of-bag discharges. We investigated the top 10 varibales most important variables, as measured by the Gini coefficient. 
  
 % How we weighted -- still haven't put in how it was the *Gini* that was weighted.
 Because the model was used solely to estimate the \emph{probability} of admission to to specific hospitals (and not to predict exactly which hospital was attended), we configured the model to favour calibration over discrimination: we weighted each of the twenty predicted hospitals by the inverse of the proportion of discharges at that hospital. We multiplied each proportion used to calculate the Gini coefficient by this weight.
@@ -202,14 +202,14 @@ Gini is defined as "inequity" when used in describing a society's distribution o
 
 
 \subsubsection{Model Q* - updated targeted maximum likelihood estimation}
-To combine our both our models G and Q, we fit twenty one-parameter logistic regression models called Q*. Each model 
+To combine our both our models G and Q, we fit twenty (one for each hospital) one-parameter logistic regression models called Q*. Q* was fit as a logistic regression with no intercept; we regressed readmission on to the inverse probability of exposure to that hospital, offset by the Q's prediction of readmission. We then used Q* to calculate the marginal probability of exposure for each hospital.
 
 % We updated for Q*
 To avoid convergence problems for this one parameter model, we fit the parameter using a quasi-Newton method simultaneously discovered by Broyden\supercite{broyden_convergence_1970}, Fletcher\supercite{fletcher_new_1970}, Goldfarb\supercite{goldfarb_family_1970} and Shanno\supercite{shanno_conditioning_1970} (BFGS).
 
 
 \subsection{Software}
-The data were cleaned and prepared for statistical analysis using the Postgres relational database (version 9.2.6). We implemented our models using the R statistical package (version 3.1.0) \supercite{team_r:_2014}. We implemented the random forest using the "bigrf" package (version 0.1.9) \supercite{lim_bigrf:_2014}. We implemented the GLM fitting using coordinate descent using the "glmnet" package (version 1.9.5) \supercite{friedman_regularization_2010}. We plotted our figures using the "ggplot2" package (version 1.0.0) \supercite{wickham_ggplot2:_2009}.
+The data were cleaned and prepared for statistical analysis using the Postgres relational database (version 9.2.6). We implemented our models using the R statistical package (version 3.1.0) \supercite{team_r:_2014}. We implemented the random forest using the "bigrf" package (version 0.1.9) \supercite{lim_bigrf:_2014}. We implemented the GLM fitting using coordinate descent using the "glmnet" package (version 1.9.5) \supercite{friedman_regularization_2010}. We plotted our figures using the "ggplot2" package (version 1.0.0) \supercite{wickham_ggplot2:_2009}. All the code to develop used to fit clean our data, fit our models, and layout this paper is \href{https://github.com/nograpes/tmle_readmissions}{available for download at Github}.
 
 
 \section{Results}
@@ -220,6 +220,11 @@ The data were cleaned and prepared for statistical analysis using the Postgres r
 {Rates of seeking care at a selected hospital by admission diagnosis in the island of Montreal. The numerator was the number of live discharges at the hospital, and the denominator was the number of person-years accumulated in that census tract of residence by cohort members when their admissions would have been eligible (after the first continuous year within the cohort). The areal units are census tracts.}
     \label{fig:hosp_choro}
 \end{figure}
+
+Over the course of January 2, 1996 to March 31, 2006, 482 064 people were entered into our cohort. 
+
+Among these, x were ever admitted for pneumonia, y were ever admitted for AMI, and z were ever admitted for heart failure. 
+
 
 % What does the accuracy of the random forest model look like as the number of trees grows for both the Q model and the G model?
 \begin{figure}[H]

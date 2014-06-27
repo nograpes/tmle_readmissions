@@ -48,6 +48,8 @@ get.accuracy<-function(rf.predict.exposure, truth){
   unname(sapply(seq_along(rf.predict.exposure),extract.by.tree.num))
 }
 
+
+
 # Exposure
 rf.exposure.accuracy.by.disease <- sapply(models,function(x) 
   get.accuracy(x[['calibrated.rf.predict.exposure']], x$disease.df$hosp))
@@ -84,9 +86,11 @@ p<-ggplot(both.accuracy.df,
        y='Error rate (out-of-bag)') +
   scale_colour_discrete(name = 'Admission diagnosis') +
   theme(legend.position = 'right',
-        text=element_text(family="Cambria"))
+          text=element_text(family="Cambria"))
 ggsave(filename="figures/error_rate_for_hospital_choice.png", 
        plot=p,width=(8.5 - (0.5*2)),height=11/3,dpi=300)
+
+# What is the best sensitivty specificity?
 
 # Variable importance.
 get.top.gini<-function(disease,top=10) {
