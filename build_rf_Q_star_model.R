@@ -189,18 +189,18 @@ epsilons<-function(offset, iptw) {
 
 
 # I have chosen to use only the calibrated IPTW, because it is more theoretically sound. (I really don't care about accuracy here.)
-rf.epsilons <- epsilons(modified.rf.prob.of.outcome, iptw)
-glmnet.epsilons <- epsilons(glmnet.prob.of.outcome, iptw)
+rf.epsilons <- epsilons(offset=modified.rf.prob.of.outcome, iptw=iptw)
+glmnet.epsilons <- epsilons(offset=glmnet.prob.of.outcome, iptw=iptw)
 
 Q.star<-function(Q, iptw, epsilons)
 				plogis(qlogis(Q) + ((1/iptw) %*% t(epsilons)))
 
 rf.Q.star <- Q.star(all.rf.Q.by.hosp, 
-                    modified.rf.prob.of.exposure, 
+                    iptw=iptw, 
 					          rf.epsilons)
 
 glmnet.Q.star <- Q.star(all.glmnet.Q.by.hosp, 
-                        glmnet.prob.of.exposure, 
+                        iptw=iptw, 
                         glmnet.epsilons)
 
 save(rf.Q.star, glmnet.Q.star,
