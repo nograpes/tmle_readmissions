@@ -196,11 +196,11 @@ Q.star<-function(Q, iptw, epsilons)
 				plogis(qlogis(Q) + ((1/iptw) %*% t(epsilons)))
 
 rf.Q.star <- Q.star(all.rf.Q.by.hosp, 
-                    modified.rf.prob.of.outcome, 
+                    modified.rf.prob.of.exposure, 
 					          rf.epsilons)
 
 glmnet.Q.star <- Q.star(all.glmnet.Q.by.hosp, 
-                        glmnet.prob.of.outcome, 
+                        glmnet.prob.of.exposure, 
                         glmnet.epsilons)
 
 save(rf.Q.star, glmnet.Q.star,
