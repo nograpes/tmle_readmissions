@@ -1,4 +1,4 @@
-# Dump directory
+# Dump directory (little change)
 # /usr/bin/R --args ./../data_clean/data_source.R ./data_dump ./disease_subsets/ami ./disease_subsets/heart_failure ./disease_subsets/pneumonia
 # setwd('~/repo/thesis/code/tmle')
 # data.source.file='../data_clean/data_source.R'
