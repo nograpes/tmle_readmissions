@@ -183,14 +183,10 @@ rf.epsilons <- epsilons(modified.rf.prob.of.outcome, iptw, y=y)
 Q.star<-function(Q, iptw, epsilons)
 				plogis(qlogis(Q) + ((1/iptw) %*% t(epsilons)))
 
-Q.star(all.rf.Q.by.hosp, iptw, rf.epsilons)
-				
-rf.Q.star <- Q.star(all.rf.Q.by.hosp, 
-                    iptw, 
-					rf.epsilons)
+rf.Q.star <- Q.star(Q = all.rf.Q.by.hosp, 
+                    iptw = iptw, 
+					epsilons = rf.epsilons)
 
-
-							  
 colMeans(rf.Q.star) [1] / colMeans(rf.Q.star) 
 # Truth
 

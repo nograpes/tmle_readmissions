@@ -76,7 +76,6 @@
 
 \addbibresource{tmle.bib} % Critical that you put .bib in here!
 \IfFileExists{upquote.sty}{\usepackage{upquote}}{}
-
 \begin{document}
 \title{Hospital readmissions and targeted maximum likelihood estimation}
 \author{Aman Verma}
@@ -84,8 +83,6 @@
 % \maketitle
 
 \begin{abstract}
-
-
 
 
 
@@ -209,7 +206,7 @@ To avoid convergence problems for this one parameter model, we fit the parameter
 
 
 \subsection{Software}
-The data were cleaned and prepared for statistical analysis using the Postgres relational database (version 9.2.6). We implemented our models using the R statistical package (version 3.1.0) \supercite{team_r:_2014}. We implemented the random forest using the "bigrf" package (version 0.1.9) \supercite{lim_bigrf:_2014}. We implemented the GLM fitting using coordinate descent using the "glmnet" package (version 1.9.5) \supercite{friedman_regularization_2010}. We plotted our figures using the "ggplot2" package (version 1.0.0) \supercite{wickham_ggplot2:_2009}. All the code to develop used to fit clean our data, fit our models, and layout this paper is \href{https://github.com/nograpes/tmle_readmissions}{available for download at Github}.
+The data were cleaned and prepared for statistical analysis using the Postgres relational database (version 9.2.6). We implemented our models using the R statistical package (version 3.1.0) \supercite{team_r:_2014}. We implemented the random forest using the "bigrf" package (version 0.1.11) \supercite{lim_bigrf:_2014}. We implemented the GLM fitting using coordinate descent using the "glmnet" package (version 1.9.8) \supercite{friedman_regularization_2010}. We plotted our figures using the "ggplot2" package (version 1.0.0) \supercite{wickham_ggplot2:_2009}. All the code to develop used to fit clean our data, fit our models, and layout this paper is \href{https://github.com/nograpes/tmle_readmissions}{available for download at Github}.
 
 
 \section{Results}
@@ -224,6 +221,10 @@ The data were cleaned and prepared for statistical analysis using the Postgres r
 Over the course of January 2, 1996 to March 31, 2006, 482 064 people were entered into our cohort. 
 
 Among these, x were ever admitted for pneumonia, y were ever admitted for AMI, and z were ever admitted for heart failure. 
+
+People ever admitted for pneumonia had a mean of x and median x2 pneumonia admissions , ever heart failure patients had a mean h1 and median h2 heart failure admissions, and ever AMI patients had a mean a1 and median a2 heart failure admissions.
+
+
 
 
 % What does the accuracy of the random forest model look like as the number of trees grows for both the Q model and the G model?
@@ -312,7 +313,6 @@ Among these, x were ever admitted for pneumonia, y were ever admitted for AMI, a
 \end{table}
 
 
-
 %latex.default(round(table, 2), file = "", cgroup = c("", "Length of stay (mean days)",     "", "Random Forest", "GLMnet"), n.cgroup = c(4, 3, 2, 3,     3), rowlabel = "Hospital", caption.loc = "bottom", caption = "Heart failure")%
 \begin{table}[!tbp]
 \begin{center}
@@ -350,7 +350,6 @@ Among these, x were ever admitted for pneumonia, y were ever admitted for AMI, a
 \end{table}
 
 
-
 %latex.default(round(table, 2), file = "", cgroup = c("", "Length of stay (mean days)",     "", "Random Forest", "GLMnet"), n.cgroup = c(4, 3, 2, 3,     3), rowlabel = "Hospital", caption.loc = "bottom", caption = "Pneumonia")%
 \begin{table}[!tbp]
 \begin{center}
@@ -386,7 +385,6 @@ Among these, x were ever admitted for pneumonia, y were ever admitted for AMI, a
 \caption{Pneumonia\label{round}}\end{center}
 
 \end{table}
-
 
 
 \setmainfont[Scale=1.25]{Cambria}

@@ -86,23 +86,35 @@ glmnet.prob.by.hosp<-function(hosp){
               		    s=glmnet.predict.outcome$lambda.1se)))  
 }
 
+
 # G model - calibrated RF 
-votes <- rf.predict.exposure@oobvotes
-rf.prob.of.exposure <- votes/rowSums(votes)
-# rf.prob.of.exposure <- prob[cbind(1:length(disease.df$hosp),
-#                             match(disease.df$hosp,colnames(prob)))]
+g.votes <- rf.predict.exposure@oobvotes
+g.by.rf.unscaled <- g.votes/rowSums(g.votes)
+
+# Important to scale each column of g
+colnames(g.by.rf.unscaled)
+
+one.v.all = sapply(colnames(g.by.rf.unscaled), function(x) disease.df$hosp == x)
+
+g.by.rf <- mapply(function(y,x) predict(glm(y~x, family=binomial),
+                                type='response'),  
+                  data.frame(one.v.all, check.names=FALSE), 
+                  data.frame(g.by.rf.unscaled))
 
 # Q model - calibrated RF - as observed (A=a)
 votes <- rf.predict.outcome@oobvotes
 prob <- votes/rowSums(votes)
 vote.prop <- prob[,"TRUE"]
+
 # Very important to scale the vote proportions.
 platt.scaler <- 
   glm(disease.df$day_30_readmit ~ vote.prop, family=binomial(link='logit'))
-rf.prob.of.outcome <-  predict(platt.scaler, type='response')
+
+Q.as.observed.by.rf <-  predict(platt.scaler, type='response')
 
 # Q model - calibrated RF - manipulating exposure to each of twenty levels.
 # (A=1, A=2..,A=20)
+
 unscaled.all.rf.Q.by.hosp<-sapply(levels(disease.df$hosp),
                                   function(x,rf.model) 
                                     rf.prob.by.hosp(rf.model,x)[,"TRUE"],
@@ -138,7 +150,7 @@ bump.zeroes <- function(x){
 }
 
 # Exposure
-modified.rf.prob.of.exposure <- bump.zeroes(rf.prob.of.exposure)
+modified.rf.prob.of.exposure <- bump.zeroes(g.by.rf)
 
 # Outcome
 modified.rf.prob.of.outcome <- bump.zeroes(rf.prob.of.outcome)
@@ -195,13 +207,15 @@ epsilons<-function(offset, iptw) {
 # rf.epsilons <- epsilons(offset=modified.rf.prob.of.outcome, iptw=iptw)
 # glmnet.epsilons <- epsilons(offset=glmnet.prob.of.outcome, iptw=iptw)
 rf.epsilons <- mapply(epsilons, offset=data.frame(all.rf.Q.by.hosp) ,iptw=data.frame(iptw))
+
 glmnet.epsilons <- mapply(epsilons, offset=data.frame(all.glmnet.Q.by.hosp) ,iptw=data.frame(iptw))
 
-Q.star<-function(Q, iptw, epsilons)
-				plogis(qlogis(Q) + ((1/iptw) %*% epsilons))
+Q.star<-function(Q, ptw, epsilons)
+				plogis(qlogis(Q) + ((ptw) %*% t(epsilons)))
 
-mapply(Q, iptw, )	
-	
+			
+rf.Q.star <- mapply(Q.star, Q=data.frame(all.rf.Q.by.hosp), ptw=data.frame(modified.rf.prob.of.exposure), epsilons=rf.epsilons)	
+
 # rf.Q.star <- Q.star(all.rf.Q.by.hosp, 
 #                     iptw=iptw, 
 # 	 				  rf.epsilons)
