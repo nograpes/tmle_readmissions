@@ -8,6 +8,10 @@ options(mc.cores=12)
 
 # arguments <- c('data_dump/rf_G_model_pneumonia.object','data_dump/rf_Q_model_pneumonia.object','data_dump/glmnet_Q_model_pneumonia.object','data_dump/rf_G_calibrated_model_pneumonia.object','data_dump/rf_Q_calibrated_model_pneumonia.object','data_dump/disease_pneumonia.object', 'build_rf_Q_star_model.R','data_dump/rf_Q_star_model_pneumonia.object','./matrix_cache')
 
+# arguments <- c('data_dump/rf_G_model_ami.object','data_dump/rf_Q_model_ami.object','data_dump/glmnet_Q_model_ami.object','data_dump/rf_G_calibrated_model_ami.object','data_dump/rf_Q_calibrated_model_ami.object','data_dump/disease_ami.object', 'build_rf_Q_star_model.R','data_dump/rf_Q_star_model_ami.object','./matrix_cache')
+
+# arguments <- c('data_dump/rf_G_model_heart_failure.object','data_dump/rf_Q_model_heart_failure.object','data_dump/glmnet_Q_model_heart_failure.object','data_dump/rf_G_calibrated_model_heart_failure.object','data_dump/rf_Q_calibrated_model_heart_failure.object','data_dump/disease_heart_failure.object', 'build_rf_Q_star_model.R','data_dump/rf_Q_star_model_heart_failure.object','./matrix_cache')
+
 # /usr/bin/R ./build_rf_Q_star_model.R  --args data_dump/rf_G_model_ami.object data_dump/rf_Q_model_ami.object data_dump/glmnet_Q_model_ami.object data_dump/rf_G_calibrated_model_ami.object data_dump/rf_Q_calibrated_model_ami.object data_dump/disease_ami.object data_dump/rf_Q_star_model_ami.object ./matrix_cache
 
 arguments<-commandArgs(trailingOnly=TRUE)
@@ -64,7 +68,7 @@ rf.probs <- function(rf.model, data, oob.only=TRUE){
 }
 
 # This returns a disease matrix with the exposure fixed to a certain hospital.
-fixed.hosp.data <- function(hosp){
+fixed.hosp.data <- function(hosp) {
   set.to.hosp <- disease.big.matrix # Fix A to the hospital.
   set.to.hosp[,grep('^hosp',colnames(disease.big.matrix))] <- 0
   var.name <- paste0('hosp',hosp)
@@ -75,7 +79,7 @@ fixed.hosp.data <- function(hosp){
 rf.prob.by.hosp <- function(rf.model, hosp, oob.only=TRUE)
   rf.probs(rf.model=rf.model, data=fixed.hosp.data(hosp), oob.only=oob.only)
 
-glmnet.prob.by.hosp<-function(hosp){
+glmnet.prob.by.hosp <- function(hosp) {
   set.to.hosp<-disease.big.matrix
   set.to.hosp[,grep('^hosp',colnames(disease.big.matrix))]<-0
   var.name<-paste0('hosp',hosp)
@@ -89,7 +93,7 @@ glmnet.prob.by.hosp<-function(hosp){
 
 # G model - calibrated RF 
 g.votes <- rf.predict.exposure@oobvotes
-g.by.rf.unscaled <- g.votes/rowSums(g.votes)
+g.by.rf.unscaled <- g.votes / rowSums(g.votes)
 
 # Important to scale each column of g
 colnames(g.by.rf.unscaled)

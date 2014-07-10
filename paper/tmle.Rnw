@@ -36,7 +36,8 @@
 \begin{abstract}
 
 <<formatterFunctions, include=FALSE>>=
-  num <- function(x) format(x, big.mark=' ')
+  # num <- function(x) format(x, big.mark=' ')
+num <- function(x) format(x, big.mark=',')
 @
 
 
@@ -55,9 +56,9 @@
 
 @
 
-Background: Hospitals in the US and other jurisdictions are being financially penalized based on estimates of their effect on 30-day readmission risk, after adjustment for confounders. Although hospital administrative data is information-rich, confounder adjustment in these models tends to be crude, risking residual confounding. Non-parametric machine learning techniques can take advantage of these rich data to predict readmission, but cannot estimate the marginal risk specific hospitals.
+Background: Hospitals in the US and other jurisdictions are being financially penalized based on estimates of their effect on 30-day readmission risk, after adjustment for confounders. Although hospital administrative data is information-rich, confounder adjustment in these models tends to be crude, risking residual confounding. Non-parametric machine learning techniques can take advantage of these rich data to predict readmission, but cannot isolate the independent effect of hospitals on readmission risk.
 
-Research Design: We used a recently developed technique, targeted maximum likelihood estimation (TMLE), that allowed us to use a non-parametric machine learning technique (random forest) to take advantage of the rich confounder data, but also to estimate the marginal 30-day readmission risk for different hospitals. We used an 11-year cohort of data from 20 hospitals in Montreal, Canada, and developed three models to estimate marginal readmission risk at each of the hospitals after hospitalization for heart failure, acute myocardial infarction (AMI), and pneumonia. To control for confounding, we modeled the effect of hundreds of types of outpatient drug prescriptions, medical procedures, and diagnoses on readmission risk.
+Research Design: To estimate the marginal effect of care at different hospitals on 30-day readmission risk, we used targeted maximum likelihood estimation (TMLE), which allowed us to use a non-parametric machine learning technique (random forest) to take advantage of the rich confounder data. We used an 11-year cohort of 65 year old patients from 20 hospitals in Montreal, Canada, and developed three models to estimate marginal readmission risk at each of the hospitals after hospitalization for heart failure, acute myocardial infarction (AMI), and pneumonia. To control for confounding, we modeled the effect of hundreds of types of pre-admission outpatient drug prescriptions, medical procedures, and diagnoses on readmission risk.
 
 Results: Within 30 days of discharge, there were \Sexpr{readmission.props('heart_failure')} heart failure readmissions, \Sexpr{readmission.props('pneumonia')} pneumonia readmissions, and \Sexpr{readmission.props('ami')} AMI readmissions. Within each hospital, there was a wide variation in crude readmission risk across the twenty hospitals for pneumonia \Sexpr{readmission.props('pneumonia')}, heart failure \Sexpr{readmission.props('heart_failure')}, and AMI \Sexpr{readmission.props('ami')}. However, after control for confounding, the marginal risk for readmission within all hospitals was nearly the same (within each admission category).
 
@@ -74,27 +75,25 @@ In the early eighties, hospital administrators in the US sought to reduce hospit
 Some worry that the new system created a perverse incentive to discharge patients early, and admit them again at a later date. To ensure proper quality of care in the hospitals while keeping costs controlled, administrators have sought to establish useful quality of care metrics. Hospital readmissions have been identified as a simple metric that can establish a baseline of care; if an abnormally high number of patients from a certain hospital are quickly readmitted, it could indicate poor quality of care. 
 
 %  So, our main problem is confounding.
-Since hospitals admit patients with varying risk of readmission, it is important to accurately estimate the effect of hospital treatment on readmission independent of patient-level confounders. Without effectively controlling for confounding, we risk unfairly penalizing hospitals that treat sicker (more likely to be readmitted) patients. Fortunately, hospital and outpatient administrative data is information-rich. Drug prescriptions, diagnoses, and medical procedures can provide important information on how the effect of hospital care on readmission is confounded by patient health. 
+Since hospitals admit patients with varying risk of readmission, it is important to accurately estimate the effect of hospital treatment on readmission independent of patient-level confounders. Without effectively controlling for confounding, we risk unfairly penalizing hospitals that treat sicker (more likely to be readmitted) patients. Fortunately, hospital and outpatient administrative data is information-rich. Drug prescriptions, diagnoses, and medical procedures can provide important information on how the effect of hospital care on readmission risk is confounded by patient health. 
 
 % How do studies typically control for confounding?
-However, in most statistical models of readmission risk, the hospital administrative data is simplified to a few well-known confounders (age, sex, previous readmissions), and sometimes a summary "comorbidity score". There is a good reason for this, it
-if each drug, diagnosis and procedure was modeled with a separate covariate, the model would be very computationlly expensive to fit. Such a model would also be very unwieldy to develop; analyzing how inclusion or exclusion of variables affects the model would be impossible to do effectively with hundreds of covariates. 
+However, in most statistical models of readmission risk, the hospital administrative data is simplified to a few well-known confounders (age, sex, previous readmissions), and sometimes a summary "comorbidity score". If each drug, diagnosis and procedure was modeled with a separate covariate, the model would be very computationally expensive to fit. Such a model would also be very unwieldy to develop; analyzing how inclusion or exclusion of variables affects the model would be impossible to do effectively with hundreds of covariates. 
 
 % Why is that problematic?
 By summarizing confounders into crude risk scores, we risk "residual confounding" leading to biased effect estimates. Furthermore, to compare hospitals, we are only interested in estimating one parameter, the independent effect of hospitals on readmissions. We are only interested in the other variables insofar as they confound the effect of hospitals on readmissions, estimating the individual effect of each of these variables is unnecessary, and statistically wasteful.
 
 % We can use machine learning techniques to develop a model with thousands of covariates.
-Non-parametric machine learning techinques are available that will let us accurately discriminate patient readmission risk using hundreds of variables in a computationally efficient way. However, these non-parametric techniques don't allow us to isolate (target) the effect of specfic variables (such as care at a particular hospital) on readmission risk. 
-
+Non-parametric machine learning techniques are available that will let us accurately discriminate patient readmission risk using hundreds of variables in a computationally efficient way. Furthermore, because they are non-parametric, we avoid having to specify a functional form, and can find complex "interactions" between variables. On the other hand, these non-parametric techniques don't allow us to isolate (target) the effect of specific variables (such as care at a particular hospital) on readmission risk. 
 
 % Instead of summarizing comorbidity scores using expert knowledge, we use the data to develop a comorbidity score specific to the problem at hand.
-Recently a new technique has been developed to estimate target parameters of interest from (possibly nonparametric)  models, the targeted maximum likelihood estimator (TMLE). To use TMLE, we fit a (possibly nonparametric) model to estimate the probability of exposure (the propensity score), and also fit another model to estimate the probability of outcome. These two probabilities are combined in a simple parametric model with a single targeted paramater. In this way, the discriminative power of non-parametric models can be used to extract estimates of parameters of interest. 
+
+The targeted maximum likelihood estimator (TMLE), is a doubly-robust technique that uses propensity scores to estimate target parameters of interest from non-parametric (or parametric) models. To use TMLE, a model is developed to estimate the probability of exposure (the propensity score), and also fit another model to estimate the probability of outcome. These two probabilities are combined in a parametric model with only the parameter of interest, inversely weighted by the probability of exposure, and offset by the probability of the outcome. In this way, the discriminative power of non-parametric models can be used to extract estimates of parameters of interest. 
 
 % What is the study question?
-In this study, we sought to estimate the marginal risk of readmission within 30 days of discharge for three different admission diagnoses (pneumonia, heart failure, and acute myocardial infarction) for each of twenty Montreal hospitals. We used a ten-year cohort of 65 year olds, for which we had outpatient and inpatient diagnoses  and procedures, and outpatient drugs prescriptions. We use a non-parametric machine learning technique, (random forest), with TMLE to take advantage of the rich confounder data and provide less biased estimates of readmission risk at each hospital. 
+In this study, we sought to estimate the marginal risk of readmission within 30 days of discharge for three different admission diagnoses (pneumonia, heart failure, and acute myocardial infarction) for each of twenty Montreal hospitals. We used a ten-year cohort of 65 year old people, for which we had outpatient and inpatient diagnoses  and procedures, and outpatient drugs prescriptions. We used a non-parametric machine learning technique, (random forest), with TMLE to take advantage of the rich confounder data and provide less biased estimates of readmission risk at each hospital. 
 
 % To estimate propensity of attending different hospitals as a function of hundreds of covariates relating to patient health, we used a non-parametric machine learning technique, random forest. We combined this propensity with a more traditional model of hospital readmissions as a function of hospital care and patient characteristics (penalized logistic regression) with a doubly robust technique, targeted maximum likelihood estimation (TMLE).
-
 \section{Methods}
 
 \subsection{Data}
@@ -106,7 +105,7 @@ We used a cohort extracted from a Canadian provincial (Quebec) administrative da
 From among this cohort, we selected hospital discharges for those who had accrued at least one continuous year in the cohort preceding the time of admission. We restricted our data to only the discharges from the twenty hospitals with the most discharges of patients 65 years or older within the study period; the twenty hospitals accounted for 75\% of all such discharges.  We only selected hospital discharges which resulted from hospital stays of at least one day. Therefore, the earliest possible hospital discharge was January 2, 1997.
 
 \subsubsection{Hospital readmissions}
-The unit of analysis in all models was the hospital discharge; a person could be discharged multiple times. A hospital readmission was defined as an emergency hospital admission to any Quebec hospital in the 30 days following a discharge.  A person who died or had a non-emergency readmission in the 30 days following discharge was considered not readmitted.
+The unit of analysis was the hospital discharge; a person could be discharged multiple times. A hospital readmission was defined as an emergency hospital admission to any Quebec hospital in the 30 days following a discharge.  A person who died or had a non-emergency readmission in the 30 days following discharge was considered not readmitted.
 
 \subsubsection{Disease types}
 From among the identified hospital discharges, we selected only those with one of three high-volume admission diagnoses with high rates of hospital readmissions: pneumonia, acute myocardial infarction (AMI), and heart failure, the three initial conditions selected by the Centers for Medicare and Medicaid Services (CMS) to implement the Hospital Readmissions Reduction Program mandated by the Affordable Care Act. We identified each of the admission diagnoses using ICD-9 codes; for pneumonia we used codes ranging from 480-487, for heart failure we used all 428 codes, and for AMI we used all 410 codes. The following methods were applied individually to all three disease subsets. 
@@ -115,41 +114,44 @@ From among the identified hospital discharges, we selected only those with one o
 
 % We had confounders.
 \subsection{Confounders}
-For each hospital discharge, we colllected variables that measured states at the time of admission, or events that occurred prior to the hospital admission, and which may confound the relationship between hospital care and readmission. We used the demographic characteristics (age at time of admission (years), sex, birth year-month), the number of previous readmissions (within the study period), the admission diagnosis (as measured by the specific ICD-9 code). We also included the day of week of discharge, which has been previously shown to have an association with readmissions, and the month of discharge, because we hypothesized that readmission risk would vary by seasons in Montreal.
+% The basic demographics and time-related confounders.
+For each hospital discharge, we colllected variables that measured states at the time of admission, or events that occurred prior to the hospital admission, and which may confound the relationship between hospital care and readmission. We used the demographic characteristics (age at time of admission (years), sex, birth year-month), the number of previous readmissions (within the preceding year), the admission diagnosis (as measured by the specific ICD-9 code). We also included the day of week of discharge, which has been previously shown to have an association with readmissions\supercite{}, and the month of discharge, because we hypothesized that readmission risk would vary by seasons in Montreal.
 
-% What about the census tract of residence?
+% Procedures, drugs, and diagnoses.
 Additionally, for each discharge, we collected the Quebec hospital diagnoses, Quebec hospital procedures, and drugs dispensed outside of the hospital but inside Quebec, in the year preceding the admission. The hospital procedures were recorded in the Canadian Classification of Diagnostic, Therapeutic, and Surgical Procedures (CCP) system. Hospital diagnostic codes were coded using the ICD-9 system. Finally, drugs which were prescribed and dispensed outside the hospital, and were being taken on the day of admission were also recorded for each patient in the \emph{code commune} system, which categorizes drugs based on the chemical compound. To ease computation, before fitting any model, we removed any diagnosis, procedure or drug that occurred less than 30 times among all discharges. We chose 30 because it appeared to be a natural breakpoint; if the number of variables included is a function $f$ of the threshold, then the first derivative of $f$ dropped at 30 for all three disease categories.
 
-\subsection{Descriptive analysis}
+% Area of residence.
+We believed that residential location would strongly affect the probability of admission to the hospital nearest that census tract. We included it in our models because we also expected it to crudely approximate a (expected) confounder: socio-economic status.  We used the residential postal code at the time of admission to assign each patient in the cohort to a census tract, as defined by the 2006 Canadian census. (Census tracts contain between 2,500 and 8,000 people, and, at the time of their creation, are demarcated so as to maximize homogeneity of socioeconomic characteristics.)
 
-\subsubsection{Choropleth}
-We believed that census tract of residence would strongly affect the probability of admission to the hospital nearest that census tract. We plotted choropleths of the rate of attendance at the twenty hospitals by census tract. The numerator was the number of live discharges at the hospital, and the denominator was the number of person-years accumulated in that census tract of residence by cohort members when their admissions would have been eligible (after the first continuous year within the cohort).
+\section{Modeling with targeted maximum likelihood estimation}
+To esimate the marginal risk of 30-day readmission for each of the twenty hospitals, we used targeted maximum likelihood estimation. The process consisted of three steps 1) estimation of a propensity score ($g$), 2) an initial estimate of the risk of readmission based on all confounders and the variables for each of the hospitals ($Q$), and 3) a final step in which we fit twenty models ($Q*$), in which a single parameter was fit to the inverse probability of exposure to that hospital (as estimated by $g$), and each offset by the marginal readmission risk of attending that hospital (as estimated by $Q$). 
 
-\subsection{Models}
+\subsection{Random forest}
+To estimate both models $g$ and $Q$, we used a random forest, a non-parametric model based on decision trees \supercite{breiman_random_2001}. Decision trees repeatedly split data into partitions that are as homogenous as possible with respect to the outcome of interest. Complex interactions and non-linearities are naturally modeled within this framework. Random forest improves decision trees by using bootstrap aggregation (bagging); multiple decision trees are grown on bootstrap replicates (sampled with replacement) to avoid overfitting. Additionally, within each tree, only a sample of the covariates is used (in our case we used a square root of the number of variables, rounded down, included in the model).
+
+For both $Q$ and $g$, we arbitrarily chose to grow 1200 trees, and then measured the accuracy as a function of the number of trees to ensure that growing further trees would be unlikely to significantly improve accuracy. When measuring the accuracy for each discharge, we only used trees for which the discharge was "out-of-bag", that is, we only used trees for which the bootstrap sample did not include the discharge.
+
 \subsubsection{Model $g$ - probability of exposure}
 % We built a model G
-We developed a multinomial model $g$ that predicted the probability of attending each of the twenty hospitals (a propensity score) as a function of all the possible confounders. To estimate $g$ we used a random forest, a non-parametric model based on decision trees \supercite{breiman_random_2001}. 
+Using random forest, we developed a multinomial model $g$ that predicted the probability of attending each of the twenty hospitals (a propensity score) as a function of all the measured confounders. 
 
-Random forest is an ensemble machine learning technique, in which multiple decision trees are grown on some training data. To grow each decision tree in the random forest, we sampled a bootstrap replicate of our data, and then . 
+Random forest traditionally classifies each item by majority vote; we converted this into a probability by taking the proportion of votes for each hospital (using only out-of-bag trees for each discharge).
+
 
 % How the Gini coefficient works.
 % Make it clear that you didn't invent this.
 To assess the importance of the variables in predicting which hospital a patient will choose, for each tree, we calculate the increase in homogeneity of classes between the root of the tree and the leaves. To measure the homogeneity of classes, we repurpose a metric that is typically used to measure equality (homogeneity) of income, the Gini coefficient \supercite{gini_variabilita_1912}. The homogeneity is defined as the sum of squared proportions in each class (hospital), with a maximum of 1 (all discharges at the same hospital) and a minimum of 1/20 (the discharges were evenly divided between the 20 hospitals). If the patients within the leaves of the tree made relatively homogeneous hospital choices, this variable predicts hospital choice well.
-
-% Explain random forest a bit better?
-We arbitrarily chose to grow 1200 trees, and then measured the accuracy as a function of the number of trees to ensure that growing further trees would be unlikely to significantly improve accuracy. When measuring the accuracy for each discharge, we only used trees for which the discharge was "out-of-bag" (outside the \emph{B}ootstrap \emph{AG}gregate), that is, we only used trees for which the bootstrap sample did not include the discharge.
 
 % We calibrated it based on the weights of the hospital. It was multinomial in that we predicted 20 hospitals. We measured the calibration, similarly only using out-of-bag discharges. We investigated the top 10 varibales most important variables, as measured by the Gini coefficient. 
  
 % How we weighted -- still haven't put in how it was the *Gini* that was weighted.
 Because the model was used solely to estimate the \emph{probability} of admission to to specific hospitals (and not to predict exactly which hospital was attended), we configured the model to favour calibration over discrimination: we weighted each of the twenty predicted hospitals by the inverse of the proportion of discharges at that hospital. We multiplied each proportion used to calculate the Gini coefficient by this weight.
 
-Random forest traditionally classifies each item by majority vote; we converted this into a probability by taking the proportion of votes for each hospital (using only out-of-bag trees for each discharge).
 
 \subsubsection{\(Q\) model - probability of outcome}
 % We built a model Q
 % We built another random forest model, very similar to the model for G, except that instead of predicting the choice of hospital, we predicted 30-day readmission. We also included a set of 19 indicator variables (or was it twenty?) for the hospital. This was also calibrated based on the inverse of the proportion of those readmitted.
-For the  \(Q\) model, we developed another random forest model, very similar to the \(g\) model, except that instead of predicting the choice of hospital, we directly predicted 30-day readmission. We also included a set of 19 indicator variables for the hospital attended. We also calibrated this model based on the inverse of the proportion of those readmitted.
+For the  \(Q\) model, we developed another random forest model, very similar to the \(g\) model, except that instead of predicting the choice of hospital, we directly predicted 30-day readmission. We also included a set of 20 indicator variables for the hospital attended. We also calibrated this model based on the inverse of the proportion of those readmitted.
 
 We also fit a regularized logistic regression model for \(Q\), using cyclical coordinate descent to estimate the parameters efficiently in our sparse but large information matrix. We penalized the likelihood by the \(\ell_2\) norm, that is, the sum of the squares of the normalized regression parameters. The scale of the penalty was determined by the parameter λ. We optimized the selection of the penalty scale for the best partial likelihood using a nested a 10-fold cross-validation. Within each fold we assessed 100 λ-values spaced evenly between max(λ)×10-4 and max(λ), where max(λ) was the smallest λ-value that would result in a model with no non-zero coefficients.
 
@@ -170,28 +172,26 @@ To combine our both our models G and Q, we fit twenty (one for each hospital) on
 % We updated for Q*
 To avoid convergence problems for this one parameter model, we fit the parameter using a quasi-Newton method simultaneously discovered by Broyden\supercite{broyden_convergence_1970}, Fletcher\supercite{fletcher_new_1970}, Goldfarb\supercite{goldfarb_family_1970} and Shanno\supercite{shanno_conditioning_1970} (BFGS).
 
-
 \subsection{Software}
 The data were cleaned and prepared for statistical analysis using the Postgres relational database (version \Sexpr{system("psql --version | rev | cut -d' ' -f 1 | rev", intern=TRUE)}). We implemented our models using the R statistical package (version \Sexpr{getRversion()}) \supercite{team_r:_2014}. We implemented the random forest using the "bigrf" package (version \Sexpr{packageVersion('bigrf')}) \supercite{lim_bigrf:_2014}. We implemented the GLM fitting using coordinate descent using the "glmnet" package (version \Sexpr{packageVersion('glmnet')}) \supercite{friedman_regularization_2010}. We plotted our figures using the "ggplot2" package (version \Sexpr{packageVersion('ggplot2')}) \supercite{wickham_ggplot2:_2009}. All the code to develop used to fit clean our data, fit our models, and layout this paper is \href{https://github.com/nograpes/tmle_readmissions}{available for download at Github}.
 
-
 \section{Results}
 % A pretty map for pretty much no reason. It shows that indeed, certain hospitals attract the residents around them, and that this does not vary by disease.
-\begin{figure}[H]
-    \includegraphics{../figures/hosp_choro.png}
-    \caption[Rates of seeking care at a selected hospital by admission diagnosis.]
-{Rates of seeking care at a selected hospital by admission diagnosis in the island of Montreal. The numerator was the number of live discharges at the hospital, and the denominator was the number of person-years accumulated in that census tract of residence by cohort members when their admissions would have been eligible (after the first continuous year within the cohort). The areal units are census tracts.}
-    \label{fig:hosp_choro}
-\end{figure}
+
+% We believed that census tract of residence would strongly affect the probability of admission to the hospital nearest that census tract. We plotted choropleths of the rate of attendance at the twenty hospitals by census tract. The numerator was the number of live discharges at the hospital, and the denominator was the number of person-years accumulated in that census tract of residence by cohort members when their admissions would have been eligible (after the first continuous year within the cohort).
+
+% \begin{figure}[H]
+%     \includegraphics{../figures/hosp_choro.png}
+%     \caption[Rates of seeking care at a selected hospital by admission diagnosis.]
+% {Rates of seeking care at a selected hospital by admission diagnosis in the island of Montreal. The numerator was the number of live discharges at the hospital, and the denominator was the number of person-years accumulated in that census tract of residence by cohort members when their admissions would have been eligible (after the first continuous year within the cohort). The areal units are census tracts.}
+%     \label{fig:hosp_choro}
+% \end{figure}
 
 Over the course of January 2, 1996 to March 31, 2006, 482 064 people were entered into our cohort. 
 
 Among these, x were ever admitted for pneumonia, y were ever admitted for AMI, and z were ever admitted for heart failure. 
 
 People ever admitted for pneumonia had a mean of x and median x2 pneumonia admissions , ever heart failure patients had a mean h1 and median h2 heart failure admissions, and ever AMI patients had a mean a1 and median a2 heart failure admissions.
-
-
-
 
 % What does the accuracy of the random forest model look like as the number of trees grows for both the Q model and the G model?
 \begin{figure}[H]
@@ -343,9 +343,8 @@ latex(round(table,2),file='',
 
 \end{landscape}
 \section{Discussion}
-
 % The introduction
-In this study, we estimated marginal risk of 30-day readmission adjusted for patient readmission risk in twenty Montreal hospitals, and found that the marginal risk differences were not nearly as strong as the crude readmission risk suggested.
+In this study, we estimated marginal risk of 30-day readmission adjusted for patient readmission risk in twenty Montreal hospitals, and found that the marginal risk differences were not nearly as strong as the crude readmission risk suggested. 
 
 % On the preventability of readmissions.
 Several readmission risk models have been criticized on the basis that they failed to distinguish preventable readmissions from readmissions due to chance alone. Despite evidence that clincians cannot reliably distinguish preventable and non-preventable readmissions, pairs of diagnosis codes have been developed that are "potentially preventable". For example, following a hospitalization for surgery, a readmission for infection would be considered preventable, but a readmission for trauma would not.
@@ -383,8 +382,6 @@ Entry to our cohort was dependent on having one diagnosis of a respiratory illne
 % We could have adjusted for the problem that a patient may be measured multiple times. In some sense, this could be considered a multiple measurement problem. But, the strata are going to be very small, and there will be many of them; the effect on variance may be very small, and the computation very difficult. It is also not exactly clear how you would do this.
  
 % The absolute risk difference is low, leading to a low marginal difference in the number readmitted between hospitals. Consider, however, that in all exposure/outcome analyses where the outcome is rare, and the exposure relatively balanced, the expected absolute difference will likely be small. 
-
-The area of patient residence was expected to be a strong predictor of exposure (which hospital was chosen for care). We included it because we also expected it to be a crude approximation of a (expected) confounder: socio-economic status. There is some data that suggests that residences in Montreal are roughly spatially segregated by resident socio-economic class, and census tracts were designed to roughly group together those of similar socio-economic status.
 
 % While it was totally possible to use SuperLearner (an ensemble learning technique), it was too computationally expensive; random forest is just one of the methods used in SuperLearner, and it was already very computationally expensive on these data.
 
