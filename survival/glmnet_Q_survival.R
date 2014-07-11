@@ -1,61 +1,34 @@
-# /usr/bin/R --args data_dump/disease_ami.object data_dump/glmnet_Q_model_ami.object 
 suppressPackageStartupMessages(library(glmnet))
 suppressPackageStartupMessages(library(doMC))
 suppressPackageStartupMessages(library(survival))
 registerDoMC(cores=10) # For 10 folds
 options(mc.cores=12)
 
-# arguments<-c('data_dump/disease_ami.object', 'data_dump/glmnet_Q_model_ami.object')
-arguments <- commandArgs(trailingOnly=TRUE)
+arguments<-c('data_dump/disease_ami.object','data_dump/rf_G_model_ami.object', 'survival/glmnet_Q.object', 'survival/glmnet_g_censor.object')
+# arguments <- commandArgs(trailingOnly=TRUE)
 
-object.file<-arguments[1]
-output.file<-arguments[2]
+object.file <- arguments[1]
+rf.G.object <- arguments[2]
+survival.Q.object <- arguments[3]
+survival.censor.object <- arguments[4]
+
 load(object.file)
-set.seed(1)
-
-load('data_dump/rf_G_model_ami.object')
-load('survival/glmnet_Q.object')
-load('survival/glmnet_g_censor.object')
-
-# arguments <- c('data_dump/rf_G_model_ami.object','data_dump/rf_Q_model_ami.object','data_dump/glmnet_Q_model_ami.object','data_dump/rf_G_calibrated_model_ami.object','data_dump/rf_Q_calibrated_model_ami.object','data_dump/disease_ami.object', 'build_rf_Q_star_model.R','data_dump/rf_Q_star_model_ami.object','./matrix_cache')
-
-# system.time(glmnet.predict.outcome<-cv.glmnet(x=disease.big.matrix[1:1000,], 
-#                                               y=Surv(disease.df$tte, !disease.df$censor)[1:1000,],
-#                                               family='cox',
-#                                               parallel=TRUE))
-
-
-
-system.time(glmnet.predict.outcome <- 
-              glmnet(x=disease.big.matrix, 
-                     y=Surv(disease.df$tte, 
-                            !disease.df$censor),
-                     family='cox' ))
-save(glmnet.predict.outcome,file='survival/glmnet_Q.object')
-
-system.time(glmnet.predict.censor <- 
-              glmnet(x=disease.big.matrix, 
-                     y=Surv(disease.df$tte, 
-                            disease.df$censor),
-                     family='cox' ))
-save(glmnet.predict.censor,file='survival/glmnet_g_censor.object')
-
-
-
-# Convergence after 37th lambda not reached. (Too small?)
-# disease.big.matrix.wo.hosp <- disease.big.matrix[,!grepl('^hosp',
-#                                                          colnames(disease.big.matrix))]
-# 
-# # Takes too long... probably just use random forest.
-# system.time(glmnet.predict.exposure <- 
-#               glmnet(x=disease.big.matrix.wo.hosp, 
-#                      y=disease.df$hosp,
-#                      family='multinomial' ))
+load(rf.G.object)
+load(survival.Q.object)
+load(survival.censor.object)
 
 # I hacked the survival package and scraped out the 
 # survival function estimator, so I can use it with a glmnet
 # found Cox model.
-# Gold
+get.betas <- function(glmnet.model, s) {
+  betas <- glmnet.model$beta[,s]
+  betas[betas!=0]
+}
+
+get.cut.x <- function(x, betas) 
+  x[,names(betas)]
+
+
 get.kalb.prent.surv <- function(y, x, coef) {
   # Clean up x
   x <- as.matrix(x)
@@ -72,20 +45,35 @@ get.kalb.prent.surv <- function(y, x, coef) {
   cumhaz <- fit$cumhaz
   unique.times <- fit$time
   cumhaz <- cumhaz[findInterval(seq.int(max(unique.times)), unique.times)]
-  list(center=xcenter, coef=coef, surv=exp(-cumhaz)) # Strip the first cumhaz, it is zero.
+  list(center=xcenter, max=max(unique.times), coef=coef, surv=exp(-cumhaz)) # Strip the first cumhaz, it is zero.
 }
 
 get.surv.at.new.x <- function (baseline, new.x, times) {
   scaled.new.x <- scale(new.x, center = baseline$center, scale = FALSE)
   scaled.new.risk <- exp(scaled.new.x %*% baseline$coef)
   base <- baseline$surv
-  mapply(function(x,y) (base^(x))[1:y], c(scaled.new.risk), times)
+  ret <- mapply(function(x,y) (base^(x))[1:y], c(scaled.new.risk), times)
+  # By definition, you can't have an estimate at the very end of the 
+  # longest time. So, you'll get NAs for those. Reset those to the last
+  # estimated survival time. 
+  lapply(ret, function(x) {
+    if (length(x)>=baseline$max) {
+      last.not.NA <- x[max(which(!is.na(x)))]
+	  x[baseline$max:length(x)] <- last.not.NA
+    }
+	x
+  })
 }
 
-get.hazard.at.new.x <- function (baseline, new.x, times) {
-  s <- get.surv.at.new.x(baseline, new.x)
-  lapply(x, function(x) diff(-log(x)))
-}
+# I thought I would need this, but I don't.
+# I really understand the hazard now, though.
+get.hazard.at.new.x <- function (surv) 
+  lapply(surv, function(x) diff(-log(x)))
+
+inv.cumprod <- function(x) x[-1] / x[-length(x)]
+
+get.conditional.failure.at.new.x <- function(surv)
+  lapply(surv, function(s) 1 - inv.cumprod(s))
 
 S0.to.S.ratio <- function(S0)
   S0[length(S0)]/S0
@@ -93,158 +81,52 @@ S0.to.S.ratio <- function(S0)
 drop.all.probs <- function(glmnet.model, y, x, s) {
   betas <- get.betas(glmnet.model, s)
   cut.x <- get.cut.x(x, betas)
-  baseline <- get.kalb.prent.surv(y, x, coef=betas)
+  baseline <- get.kalb.prent.surv(y, cut.x, coef=betas)
 
   all.zero <- cut.x
   hosps <- levels(disease.df$hosp)
   cols <- paste0('hosp', hosps)
   
-  x.mat.list <- lapply(cols, function(x) {
+  x.mat.list <- mclapply(cols, function(x) {
     if (x %in% colnames(all.zero)) all.zero[,x]<-1
     all.zero
   })
   
+  times <- disease.df$tte
   surv <- mclapply(x.mat.list, get.surv.at.new.x, 
-                baseline=baseline, times=times)
-  hazard <- mclapply(x.mat.list, get.hazard.at.new.x, 
-                     baseline=baseline, times=times)
-  s.ratio <- mclapply(surv, S0.to.S.ratio)
-  names(s.ratio) <- names(hazard) <- names(surv) <- hosps
-
-  # Unwrap them into data.frames.
-  surv.unlist <- lapply(surv, unlist)
-  hazard.unlist <- lapply(hazard, unlist)
-  s.ratio.unlist <- lapply(s.ratio, unlist)
-  
-  lapply(hosp,
-	  function(hosp) data.frame(S=surv.unlist[[hosp]], 
-								Q=hazard.unlist[[hosp]], 
-								S.ratio=s.ratio.unlist[[hosp]])
-  )
+                baseline=baseline, times=times+1) # Because first is always 1
+  hazard <- mclapply(surv, get.hazard.at.new.x)
+  cond.fail <- mclapply(surv, get.conditional.failure.at.new.x)
+  surv <- lapply(surv, function(x) lapply(x, function(y) y[-1])) # Now clip the first surv prob.
+  s.ratio <- mclapply(surv, function(x) lapply(x,S0.to.S.ratio))
+  names(cond.fail) <- names(s.ratio) <- names(hazard) <- names(surv) <- hosps
+  list(surv=surv, cond.fail=cond.fail, hazard=hazard, s.ratio=s.ratio)
 }
 
-
-# End Gold
-
-
-
-get.haz.from.hazard.object <- function(hazard.object) {
-  hazard <- hazard.object$hazard
-  unique.times <- hazard.object$time
-  filled.hazard <- c()
-  filled.hazard[unique.times] <- hazard
-  ifelse(is.na(filled.hazard),0,filled.hazard) [-1]
-}
-
-get.surv.from.hazard.object <- function(hazard.object, new.risk, times) {
-  baseline <- get.cumhaz.from.hazard.object(hazard.object)
-  scaled.new.x <- scale(new.x, center = baseline$center, scale = FALSE)
-  scaled.new.risk <- exp(scaled.new.x %*% baseline$coef)
-  base <- exp(-baseline$cumhaz)
-  mapply(function(x,y) (base^(x))[1:y], c(scaled.new.risk), times)
-}
-
-
-get.cumhaz.from.hazard.object <- function(hazard.object) {
-  cumhaz <- hazard.object$cumhaz
-  unique.times <- hazard.object$time
-  cumhaz <- cumhaz[findInterval(seq.int(max(unique.times)), unique.times)]
-  list(center=xcenter, coef=coef, cumhaz=cumhaz[-1]) 
-}
-
-
-
-#surv.precomputed.baseline <- function(baseline, new.x, times) {
-#  scaled.new.x <- scale(new.x, center = baseline$center, scale = FALSE)
-#  scaled.new.risk <- exp(scaled.new.x %*% baseline$coef)
-#  base <- exp(-baseline$cumhaz)
-#  mapply(function(x,y) (base^(x))[1:y], c(scaled.new.risk), times)
-#}
-
-get.hazard.object <- function(y, x, coef) {
-
-}
-
-
-survival:::agsurv
-
-get.kalb.prent.cum.haz <- function(y, x, coef) {
-  # Clean up x
-  x <- as.matrix(x)
-  good.indices <- complete.cases(x)
-  x <- x[good.indices,,drop=FALSE]
-  y <- y[good.indices,,drop=FALSE]
-  xcenter <- colMeans(x)
-  scaled.x <- scale(x, center = xcenter, scale = FALSE)
-  scaled.risk <- c(exp(scaled.x %*% coef))
-  survival:::agsurv(y=y, x=scaled.x, 
-                    wt=rep(1,nrow(x)), 
-                    risk=scaled.risk, 
-                    survtype=3, vartype=3) # Kalbfleisch-Prentice. (Breslow)
-}
-
-
-  glmnet.model=glmnet.predict.outcome
-  y=Surv(disease.df$tte, !disease.df$censor)
-  x=disease.big.matrix
-  s=72
-
- 
-
-
-
-
-
-Q.precomputed.baseline <- function(baseline, new.x, times) {
-  scaled.new.x <- scale(new.x, center = baseline$center, scale = FALSE)
-  scaled.new.risk <- exp(scaled.new.x %*% baseline$coef)
-  base <- exp(-baseline$cumhaz)
-  mapply(function(x,y) inv.cumprod((base^(x))[1:(y+1)]), c(scaled.new.risk), times)
-}
-
-get.betas <- function(glmnet.model, s) {
-  betas <- glmnet.model$beta[,s]
-  betas[betas!=0]
-}
-
-get.cut.x <- function(x, betas) {
-  x[,names(betas)]
-}
-
-drop.probs <- function(glmnet.model, y, x, s, unlist=TRUE) {
-  betas <- get.betas(glmnet.model, s)
-  cut.x <- get.cut.x(x, betas)
-  
-  times <- as.matrix(y)[,1]
-  baseline <- get.baseline.surv(y, cut.x, coef=betas)
-  surv.all.times <- surv.precomputed.baseline(baseline, 
-                                              new.x=cut.x,
-                                              times=times) 
-  #   m <- mapply(function(x,y) x[seq.int(y)],surv.all.times, times)
-  if (unlist) return(unlist(surv.all.times))
-  return(surv.all.times)
-}
-
-inv.cumprod <- function(x) x[-1] / x[-length(x)]
-S0.to.Q <- function (x) 1-inv.cumprod
+# S0 and Q.
+# debugonce(drop.all.probs)
+outcome.S0.and.Q.list <- drop.all.probs(
+  glmnet.model=glmnet.predict.outcome,
+  y=Surv(disease.df$tte, !disease.df$censor),
+  x=disease.big.matrix,
+  s=72)
+hosps=names(outcome.S0.and.Q.list$surv)
 
 # Calculate g2 (probability of censoring by time)
-censor.probs <-drop.probs(
+censor.probs <-drop.all.probs(
   glmnet.model=glmnet.predict.censor,
   y=Surv(disease.df$tte, disease.df$censor),
   x=disease.big.matrix,
   s=12
-)
+)$surv
+names(censor.probs) <- hosps
 
 # Calculate g1 (probability of exposure)
-# Just going to reuse the random forest model.
 # G model - calibrated RF 
 g.votes <- rf.predict.exposure@oobvotes
 g.by.rf.unscaled <- g.votes / rowSums(g.votes)
-
-# Important to scale each column of g
 one.v.all = sapply(colnames(g.by.rf.unscaled), function(x) disease.df$hosp == x)
-
+# Important to scale each column of g
 g.by.rf <- mapply(function(y,x) predict(glm(y~x, family=binomial),
                                         type='response'),  
                   data.frame(one.v.all, check.names=FALSE), 
@@ -254,73 +136,56 @@ prob.of.exposure.to.exposed <- g.by.rf[cbind(
   seq.int(nrow(disease.df)),
   match(disease.df$hosp,colnames(g.by.rf)))]
 
-# Now, get my first iteration of Q.
-# Grab all the Q stuff and surv probs.
-# debugonce(drop.all.probs)
-outcome.S0.and.Q.list <- drop.all.probs(
-  glmnet.model=glmnet.predict.outcome,
-  y=Surv(disease.df$tte, !disease.df$censor),
-  x=disease.big.matrix,
-  s=72)
-
-outcome.S0.list <- outcome.S0.and.Q.list$surv  
-Q.init.list <- outcome.S0.and.Q.list$Q
-hosps <- names(outcome.S0.list)
-
-# outcome.S0.list[[1]][[1]])
-
-
-#Q.init.list <- mclapply(outcome.S0.list,
-#                        function(outcome.S0)
-#                          lapply(outcome.S0, S0.to.Q))
-# Why in god's name is there no USE.NAMES argument for mclapply?
-#names(Q.init.list) <- hosps
-
-S.ratio.init <- mclapply(outcome.S0.list, 
-                         function(outcome.S0) 
-                           lapply(outcome.S0, S0.to.S.ratio))
-names(S.ratio.init) <- hosps
-
-
-# sapply is super slow for reasons I can't understand.
-Q.by.hosp <- do.call(cbind, lapply(Q.init.list, unlist))
-S.ratio.by.hosp <- do.call(cbind, lapply(S.ratio.init, unlist))
-S0.by.hosp <- do.call(cbind, lapply(outcome.S0.list, unlist))
-
-colnames(Q.by.hosp) <- 
-  colnames(S.ratio.by.hosp) <- colnames(S0.by.hosp) <- hosps
-
 # Reorganize, so each hospital has its own data.frame
 # with Q, S.ratio, S0, g1, and g2.
 hosp.dfs <- lapply(hosps,
-                   function(hosp) 
-                     data.frame(Q       = Q.by.hosp[,hosp],
-                                S.ratio = S.ratio.by.hosp[,hosp],
-                                S0      = S0.by.hosp[,hosp],
-                                g1      = rep(ifelse(disease.df$hosp==hosp, 
-                                                     1/prob.of.exposure.to.exposed, 
-                                                     0), times=disease.df$tte),
-                                g2      = censor.probs,
-                                time    = unlist(lapply(disease.df$tte,seq.int)),
-                                tte     = rep(disease.df$tte, disease.df$tte),
-                                censor  = rep(disease.df$censor, disease.df$tte)
-                     ))
+			   function(hosp) 
+				data.frame(Q    = unlist(outcome.S0.and.Q.list$cond.fail[[hosp]]),
+						hazard  = unlist(outcome.S0.and.Q.list$hazard[[hosp]]),
+						S.ratio = unlist(outcome.S0.and.Q.list$s.ratio[[hosp]]),
+						S0      = unlist(outcome.S0.and.Q.list$surv[[hosp]]),
+						g1      = rep(ifelse(disease.df$hosp==hosp, 
+											 prob.of.exposure.to.exposed, 
+											 0), times=disease.df$tte),
+						g2      = unlist(censor.probs[[hosp]]),
+						time    = unlist(lapply(disease.df$tte,seq.int)),
+						tte     = rep(disease.df$tte, disease.df$tte),
+						censor  = rep(disease.df$censor, disease.df$tte)
+				))
 names(hosp.dfs) <- hosps
 
-for(i in seq_along(hosp.dfs)) {
-  hosp.dfs[[i]]$clever.covariate <- with(hosp.dfs[[i]],(g1*(1/g2))*S.ratio)
-  hosp.dfs[[i]]$n1 <- with(hosp.dfs[[i]], !censor & (time==tte))
-  # Some Q will equal exactly one. This is going to be a problem when 
-  # I take the inverse logit.
-  second.highest <- max(hosp.dfs[[i]]$Q [hosp.dfs[[i]]$Q!=1])
-  hosp.dfs[[i]]$Q [hosp.dfs[[i]]$Q==1] <- second.highest
+
+clip <- function(x){ 
+  second.lowest <- min(x[x!=min(x)])
+  x[x==min(x)] <- second.lowest
+  x
 }
 
-# I actually don't even need the epsilons, I just need the new Q*
-#epsilons <- sapply(hosp.dfs,
-#                   function(hosp.df) glm(n1~clever.covariate-1, offset=qlogis(Q), 
-#                                         data=hosp.df)$coef['clever.covariate']
-#)
+pinch.low <- function(x, low=0.025)
+  ifelse(x < low, low, x)
+
+# A very useful utility function
+is.bad<-function(x) is.na(x) | is.infinite(x) | is.nan(x)
+
+for(i in seq_along(hosp.dfs)) {
+  # Some Q will equal exactly zero. This is going to be a problem when 
+  # I take the inverse logit.
+  hosp.dfs[[i]]$Q <- clip(hosp.dfs[[i]]$Q)
+  hosp.dfs[[i]]$g1 <- ifelse(hosp.dfs[[i]]$g1==0,0,
+                             1/pinch.low(hosp.dfs[[i]]$g1))
+							 
+  hosp.dfs[[i]]$g2 <- pinch.low(hosp.dfs[[i]]$g2)
+  hosp.dfs[[i]]$clever.covariate <- with(hosp.dfs[[i]],
+                                        (g1*(1/g2))*S.ratio)
+  hosp.dfs[[i]]$n1 <- with(hosp.dfs[[i]], !censor & (time==tte))
+}
+
+
+
+# Seriously, I don't need the whole thing.
+# Those zeroes will always just add a constant to the likelihood
+# in a single variable function.
+reduced.hosp.dfs <- lapply(hosp.dfs, function(x) x[x$clever.covariate!=0,])
 
 # I need the epsilons for several reasons.
 Q.star.by.hosp.df <- function(hosp.df) {
@@ -328,18 +193,54 @@ Q.star.by.hosp.df <- function(hosp.df) {
               family=binomial,
               offset=qlogis(Q), 
               data=hosp.df)
-    list(epsilon=coef(model), Q=predict(model, type='response'))
+    list(epsilon=coef(model), Q.star=predict(model, type='response'))
 }
+Q.star.and.epsilons <- lapply(reduced.hosp.dfs, Q.star.by.hosp.df)
 
-hosp.df <- hosp.dfs[[1]]
-system.time(
-	model <- glm(n1~clever.covariate-1, 
+
+mean(Q.star.and.epsilons[[1]]$Q / Q.star.and.epsilons[[2]]$Q)
+
+length(Q.star.and.epsilons[[1]]$Q)
+length(Q.star.and.epsilons[[2]]$Q)
+
+sapply(Q.star.and.epsilons, "[[", "epsilon")
+
+hosp.df = hosp.dfs[["Hôpital Saint-Luc du CHUM"]]
+hosp.df[which(hosp.df$clever.covariate==max(hosp.df$clever.covariate)),]
+
+
+m = Q.star.by.hosp.df(hosp.df)
+m$epsilon
+
+hosp.df = hosp.df[hosp.df$clever.covariate!=0,]
+m2 = Q.star.by.hosp.df.test.offset(hosp.df)
+
+summary(n1 - hosp.df$Q)
+
+guy.54 <- hosp.dfs[[1]][789:(789+54-1),]
+
+cumprod(1 - (guy.54$Q + Q.star.and.epsilons[[1]]$epsilon))
+cumprod(1 - guy.54$Q)
+
+
+head(hosp.df)
+summary(hosp.df$clever.covariate)
+
+sapply(hosp.dfs, function(x) max(x$clever.covariate))
+
+1/50079
+1/0.025
+
+system.time(model <- glm(n1~clever.covariate-1, 
               family=binomial,
               offset=qlogis(Q), 
-              data=hosp.df)
-)
+              data=hosp.dfs[[1]]))
 
-Q.star.and.epsilons <- lapply(hosp.dfs, Q.star.by.hosp.df)
+# End Gold
+
+
+
+
 
 Q.star <- lapply(Q.star.and.epsilons,"[[",'Q')
 epsilons <- sapply(Q.star.and.epsilons,"[[",'epsilon')
