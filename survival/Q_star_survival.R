@@ -4,7 +4,7 @@ suppressPackageStartupMessages(library(survival))
 registerDoMC(cores=10) # For 10 folds
 options(mc.cores=12)
 
-arguments<-c('data_dump/disease_ami.object','data_dump/rf_G_model_ami.object', 'survival/glmnet_Q.object', 'survival/glmnet_g_censor.object')
+arguments<-c('data_dump/disease_ami.object', 'data_dump/rf_G_model_ami.object', 'survival/data_dump/glmnet_Q_ami.object', 'survival/data_dump/glmnet_g_censor_ami.object')
 # arguments <- commandArgs(trailingOnly=TRUE)
 
 object.file <- arguments[1]
@@ -14,14 +14,14 @@ survival.censor.object <- arguments[4]
 
 load(object.file)
 load(rf.G.object)
-load(survival.Q.object)
-load(survival.censor.object)
+load(survival.Q.object) # glmnet.predict.outcome
+load(survival.censor.object) # glmnet.predict.censor
 
 # I hacked the survival package and scraped out the 
 # survival function estimator, so I can use it with a glmnet
 # found Cox model.
 get.betas <- function(glmnet.model, s) {
-  betas <- glmnet.model$beta[,s]
+  betas <- glmnet.model$glmnet.fit$beta[,s]
   betas[betas!=0]
 }
 
@@ -82,7 +82,10 @@ get.conditional.failure.at.new.x <- function(surv)
 S0.to.S.ratio <- function(S0)
   S0[length(S0)]/S0
  
-drop.all.probs <- function(glmnet.model, y, x, s) {
+# The other choice for s is lambda.1se, where you select the biggest
+# lambda that is within 1 standard error of lambda min.
+drop.all.probs <- function(glmnet.model, y, x, s.type='lambda.min') {
+  s <- match(glmnet.model[[s.type]], glmnet.model$lambda)
   betas <- get.betas(glmnet.model, s)
   cut.x <- get.cut.x(x, betas)
   baseline <- get.kalb.prent.surv(y, cut.x, coef=betas)
@@ -114,26 +117,14 @@ drop.all.probs <- function(glmnet.model, y, x, s) {
 outcome.S0.and.Q.list <- drop.all.probs(
   glmnet.model=glmnet.predict.outcome,
   y=Surv(disease.df$tte, !disease.df$censor),
-  x=disease.big.matrix,
-  s=72)
+  x=disease.big.matrix)
 hosps=names(outcome.S0.and.Q.list$surv)
-
-an(outcome.S0.and.Q.list$tte[[1]])
-
-summary(outcome.S0.and.Q.list$tte[[1]])
-
-
-
-quantile(disease.df$tte[!disease.df$censor],probs=seq(0,1,by=0.1))
-summary(disease.df$tte[!disease.df$censor],probs=seq(0,1,by=0.1))
 
 # Calculate g2 (probability of censoring by time)
 censor.probs <-drop.all.probs(
   glmnet.model=glmnet.predict.censor,
   y=Surv(disease.df$tte, disease.df$censor),
-  x=disease.big.matrix,
-  s=12
-)$surv
+  x=disease.big.matrix)$surv
 names(censor.probs) <- hosps
 
 # Calculate g1 (probability of exposure)
@@ -155,7 +146,9 @@ prob.of.exposure.to.exposed <- g.by.rf[cbind(
 # with Q, S.ratio, S0, g1, and g2.
 hosp.dfs <- lapply(hosps,
 			   function(hosp) 
-				data.frame(Q    = unlist(outcome.S0.and.Q.list$cond.fail[[hosp]]),
+				data.frame(
+				        id      = rep(seq.int(nrow(disease.df)), times=disease.df$tte),
+				        Q    = unlist(outcome.S0.and.Q.list$cond.fail[[hosp]]),
 						hazard  = unlist(outcome.S0.and.Q.list$hazard[[hosp]]),
 						S.ratio = unlist(outcome.S0.and.Q.list$s.ratio[[hosp]]),
 						S0      = unlist(outcome.S0.and.Q.list$surv[[hosp]]),
@@ -195,12 +188,18 @@ for(i in seq_along(hosp.dfs)) {
   hosp.dfs[[i]]$n1 <- with(hosp.dfs[[i]], !censor & (time==tte))
 }
 
-
-
 # Seriously, I don't need the whole thing.
 # Those zeroes will always just add a constant to the likelihood
 # in a single variable function.
 reduced.hosp.dfs <- lapply(hosp.dfs, function(x) x[x$clever.covariate!=0,])
+
+# This is a practical consideration to prevent positivity violations.
+# There will be very little data at the end of the survival curve.
+# By clipping the 1% quantile, we can remove these violations, and prevent
+# having enormous weights (1600) over a period of 1000 days, which overwhelms
+# anything else in the model.
+cutoff <- quantile(disease.df$tte,0.99)
+reduced.hosp.dfs <- lapply(reduced.hosp.dfs, function(x) x[x$time<cutoff,])
 
 # I need the epsilons for several reasons.
 Q.star.by.hosp.df <- function(hosp.df) {
@@ -212,6 +211,97 @@ Q.star.by.hosp.df <- function(hosp.df) {
 }
 Q.star.and.epsilons <- lapply(reduced.hosp.dfs, Q.star.by.hosp.df)
 
+# Setup the "initial" iteration.
+Q.iteration <- lapply(Q.star.and.epsilons, function(x) matrix(x$Q.star,ncol=1))
+names(Q.iteration) <- names(Q.star.and.epsilons)
+epsilon.iteration <- t(sapply(Q.star.and.epsilons, "[[", "epsilon"))
+colnames(epsilon.iteration) <- gsub('.clever.covariate','',colnames(epsilon.iteration),fixed=TRUE)
+
+# Now setup for the iterations.
+update.hosp.df <- function(hosp, Q.star.and.epsilons, reduced.hosp.dfs){
+  Q.star <- Q.star.and.epsilons[[hosp]]$Q.star
+  hosp.df <- reduced.hosp.dfs[[hosp]]
+  hosp.df$Q <- Q.star
+  tte.set <- disease.df$tte[disease.df$hosp==hosp]
+  split.Q.star <- split(Q.star, hosp.df$id)
+  new.surv <- lapply(split.Q.star, function(x) cumprod(1-x))
+  hosp.df$S0 <- unlist(new.surv)
+  S.ratio <- lapply(new.surv, S0.to.S.ratio)
+  hosp.df$S.ratio <- unlist(S.ratio)
+  hosp.df$clever.covariate <- with(hosp.df,
+                                        (g1*(1/g2))*S.ratio)
+  hosp.df
+}
+
+updated.hosp.dfs <- reduced.hosp.dfs
+updated.Q.star.and.epsilons <- Q.star.and.epsilons
+iteration <- 2
+while (iteration < 20) { # Will change to delta
+    print(iteration)
+	updated.hosp.dfs <- lapply(hosps, update.hosp.df, 
+							   updated.Q.star.and.epsilons, updated.hosp.dfs)
+    names(updated.hosp.dfs) <- hosps							   
+	updated.Q.star.and.epsilons <- lapply(updated.hosp.dfs, 
+	                                      Q.star.by.hosp.df)
+	epsilon.iteration <- rbind(epsilon.iteration,
+	                           sapply(updated.Q.star.and.epsilons, "[[", "epsilon"))
+    for (i in seq_along(Q.iteration))
+	   Q.iteration[[i]] <- cbind(Q.iteration[[i]],
+	                             updated.Q.star.and.epsilons[[i]]$Q.star)
+	iteration <- iteration + 1
+}
+
+epsilon.iteration
+
+
+
+updated.Q.star.and.epsilons <- lapply(updated.hosp.dfs, Q.star.by.hosp.df)						   
+sapply(updated.Q.star.and.epsilons, "[[", "epsilon")
+
+
+
+
+
+head(hosp.df)
+
+updated.dfs <- lapply(names(reduced.hosp.dfs), 
+                function(x) {
+                   hosp.df <- reduced.hosp.dfs[[x]]
+				   hosp.df$Q <- Q.star.and.epsilons[[x]]$Q.star
+				   new.surv <- 
+				   
+				   
+				   hosp.df
+				})
+names(updated.dfs) <- names(reduced.hosp.dfs)
+
+goof = Q.star.by.hosp.df(updated.dfs[[1]])
+goof$epsilon
+
+
+
+
+
+hosp.df=reduced.hosp.dfs[["Hôpital Notre-Dame du CHUM"]]
+head(hosp.df[hosp.df$clever.covariate > 1500,])
+
+sapply(reduced.hosp.dfs,function(x) max(x$clever.covriate))
+
+sapply(hosp.df[hosp.df$clever.covariate > 200,])
+
+
+hosp.df=reduced.hosp.dfs[[1]]
+max(hosp.df$clever.covariate)
+head(hosp.df[hosp.df$clever.covariate > 100,])
+
+
+table(hosp.df$clever.covariate > 100)
+tail(sort(hosp.df$clever.covariate),1000)
+
+	model <- glm(n1~clever.covariate-1, 
+              family=binomial,
+              offset=qlogis(Q), 
+data=hosp.dfs[["Hôpital Notre-Dame du CHUM"]])
 
 mean(Q.star.and.epsilons[[1]]$Q / Q.star.and.epsilons[[2]]$Q)
 
@@ -220,12 +310,18 @@ length(Q.star.and.epsilons[[2]]$Q)
 
 sapply(Q.star.and.epsilons, "[[", "epsilon")
 
-hosp.df = hosp.dfs[["Hôpital Saint-Luc du CHUM"]]
+hosp.df = reduced.hosp.dfs[["Hôpital Saint-Luc du CHUM"]]
 hosp.df[which(hosp.df$clever.covariate==max(hosp.df$clever.covariate)),]
 
+hosp.df[which(hosp.df$clever.covariate>500),]
+
+
+quantile(disease.df$tte,prob=seq(0,1,by=0.01))
+quantile(disease.df$tte[!disease.df$censor],prob=seq(0,1,by=0.01))
 
 m = Q.star.by.hosp.df(hosp.df)
 m$epsilon
+
 
 hosp.df = hosp.df[hosp.df$clever.covariate!=0,]
 m2 = Q.star.by.hosp.df.test.offset(hosp.df)
@@ -241,7 +337,9 @@ cumprod(1 - guy.54$Q)
 head(hosp.df)
 summary(hosp.df$clever.covariate)
 
-sapply(hosp.dfs, function(x) max(x$clever.covariate))
+sapply(reduced.hosp.dfs, function(x) max(x$clever.covariate))
+
+sapply(Q.star.and.epsilons,"[[",'epsilon')
 
 1/50079
 1/0.025
@@ -252,6 +350,7 @@ system.time(model <- glm(n1~clever.covariate-1,
               data=hosp.dfs[[1]]))
 
 # End Gold
+
 
 
 
