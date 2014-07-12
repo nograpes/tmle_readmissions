@@ -6,6 +6,9 @@ DISEASE_SUBSET_DIR=${CUR_DIR}/disease_subsets
 DATA_DUMP_DIR=${CUR_DIR}/data_dump
 MATRIX_CACHE_DIR=${CUR_DIR}/matrix_cache
 
+SURVIVAL_DIR=${CUR_DIR}/survival
+SURVIVAL_DATA_DUMP_DIR=${SURVIVAL_DIR}/data_dump
+
 RSCRIPT=/usr/bin/Rscript --vanilla
 DISEASES=$(wildcard $(DISEASE_SUBSET_DIR)/*)
 DISEASES_NO_PATH=$(subst $(DISEASE_SUBSET_DIR)/,,$(DISEASES))
@@ -21,6 +24,13 @@ all: $(DISEASES_NO_PATH:%=${DATA_DUMP_DIR}/rf_Q_star_model_%.object)
 ${DATA_DUMP_DIR}/rf_Q_star_model_%.object : ${DATA_DUMP_DIR}/rf_G_model_%.object ${DATA_DUMP_DIR}/rf_Q_model_%.object ${DATA_DUMP_DIR}/glmnet_Q_model_%.object   ${DATA_DUMP_DIR}/rf_G_calibrated_model_%.object ${DATA_DUMP_DIR}/rf_Q_calibrated_model_%.object ${DATA_DUMP_DIR}/disease_%.object ${CUR_DIR}/build_rf_Q_star_model.R
 	${RSCRIPT} ${CUR_DIR}/build_rf_Q_star_model.R $^ $@ ${MATRIX_CACHE_DIR}
 
+${SURVIVAL_DATA_DUMP_DIR}/glmnet_g_censor_%.object : ${DATA_DUMP_DIR}/disease_%.object ${SURVIVAL_DIR}/glmnet_g_censor.R
+	${RSCRIPT} ${SURVIVAL_DIR}/glmnet_g_censor.R $< $@
+
+${SURVIVAL_DATA_DUMP_DIR}/glmnet_Q_%.object : ${DATA_DUMP_DIR}/disease_%.object ${SURVIVAL_DIR}/glmnet_Q.R
+	${RSCRIPT} ${SURVIVAL_DIR}/glmnet_Q.R $< $@
+
+	
 ${DATA_DUMP_DIR}/glmnet_Q_model_%.object : ${DATA_DUMP_DIR}/disease_%.object ${CUR_DIR}/build_glmnet_Q_model.R
 	${RSCRIPT} ${CUR_DIR}/build_glmnet_Q_model.R $< $@
 
