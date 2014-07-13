@@ -4,7 +4,7 @@ suppressPackageStartupMessages(library(survival))
 registerDoMC(cores=10) # For 10 folds
 options(mc.cores=12)
 
-# arguments<-c('data_dump/disease_ami.object', 'data_dump/rf_G_model_ami.object', 'survival/data_dump/glmnet_Q_ami.object', 'survival/data_dump/glmnet_g_censor_ami.object', 'survival/data_dump/Q_star_ami.object')
+# arguments<-c('data_dump/disease_ami.object', 'data_dump/rf_G_model_ami.object', 'survival/data_dump/glmnet_Q_ami.object', 'survival/data_dump/glmnet_g_censor_ami.object', 'survival/data_dump/Q_star_ami.object', 'survival/Q_star_survival.R')
 arguments <- commandArgs(trailingOnly=TRUE)
 
 object.file <- arguments[1]
@@ -12,6 +12,7 @@ rf.G.object <- arguments[2]
 survival.Q.object <- arguments[3]
 survival.censor.object <- arguments[4]
 output.file <- arguments[5]
+R.file <- arguments[6] # Because I can't get the Makefile to not pass these.
 
 load(object.file)
 load(rf.G.object)
