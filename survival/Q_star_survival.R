@@ -4,13 +4,14 @@ suppressPackageStartupMessages(library(survival))
 registerDoMC(cores=10) # For 10 folds
 options(mc.cores=12)
 
-arguments<-c('data_dump/disease_ami.object', 'data_dump/rf_G_model_ami.object', 'survival/data_dump/glmnet_Q_ami.object', 'survival/data_dump/glmnet_g_censor_ami.object')
-# arguments <- commandArgs(trailingOnly=TRUE)
+# arguments<-c('data_dump/disease_ami.object', 'data_dump/rf_G_model_ami.object', 'survival/data_dump/glmnet_Q_ami.object', 'survival/data_dump/glmnet_g_censor_ami.object', 'survival/data_dump/Q_star_ami.object')
+arguments <- commandArgs(trailingOnly=TRUE)
 
 object.file <- arguments[1]
 rf.G.object <- arguments[2]
 survival.Q.object <- arguments[3]
 survival.censor.object <- arguments[4]
+output.file <- arguments[5]
 
 load(object.file)
 load(rf.G.object)
@@ -236,8 +237,7 @@ update.hosp.df <- function(hosp, Q.star.and.epsilons, reduced.hosp.dfs){
 updated.hosp.dfs <- reduced.hosp.dfs
 updated.Q.star.and.epsilons <- Q.star.and.epsilons
 iteration <- 2
-while (iteration < 20) { # Will change to delta
-    print(iteration)
+while (any((epsilon.iteration[iteration-1,]) > 1e-10)) { # Will change to delta
 	updated.hosp.dfs <- lapply(hosps, update.hosp.df, 
 							   updated.Q.star.and.epsilons, updated.hosp.dfs)
     names(updated.hosp.dfs) <- hosps							   
@@ -250,338 +250,27 @@ while (iteration < 20) { # Will change to delta
 	                             updated.Q.star.and.epsilons[[i]]$Q.star)
 	iteration <- iteration + 1
 }
-
-epsilon.iteration
-
-
-
-updated.Q.star.and.epsilons <- lapply(updated.hosp.dfs, Q.star.by.hosp.df)						   
-sapply(updated.Q.star.and.epsilons, "[[", "epsilon")
-
-
-
-
-
-head(hosp.df)
-
-updated.dfs <- lapply(names(reduced.hosp.dfs), 
-                function(x) {
-                   hosp.df <- reduced.hosp.dfs[[x]]
-				   hosp.df$Q <- Q.star.and.epsilons[[x]]$Q.star
-				   new.surv <- 
-				   
-				   
-				   hosp.df
-				})
-names(updated.dfs) <- names(reduced.hosp.dfs)
-
-goof = Q.star.by.hosp.df(updated.dfs[[1]])
-goof$epsilon
-
-
-
-
-
-hosp.df=reduced.hosp.dfs[["Hôpital Notre-Dame du CHUM"]]
-head(hosp.df[hosp.df$clever.covariate > 1500,])
-
-sapply(reduced.hosp.dfs,function(x) max(x$clever.covriate))
-
-sapply(hosp.df[hosp.df$clever.covariate > 200,])
-
-
-hosp.df=reduced.hosp.dfs[[1]]
-max(hosp.df$clever.covariate)
-head(hosp.df[hosp.df$clever.covariate > 100,])
-
-
-table(hosp.df$clever.covariate > 100)
-tail(sort(hosp.df$clever.covariate),1000)
-
-	model <- glm(n1~clever.covariate-1, 
-              family=binomial,
-              offset=qlogis(Q), 
-data=hosp.dfs[["Hôpital Notre-Dame du CHUM"]])
-
-mean(Q.star.and.epsilons[[1]]$Q / Q.star.and.epsilons[[2]]$Q)
-
-length(Q.star.and.epsilons[[1]]$Q)
-length(Q.star.and.epsilons[[2]]$Q)
-
-sapply(Q.star.and.epsilons, "[[", "epsilon")
-
-hosp.df = reduced.hosp.dfs[["Hôpital Saint-Luc du CHUM"]]
-hosp.df[which(hosp.df$clever.covariate==max(hosp.df$clever.covariate)),]
-
-hosp.df[which(hosp.df$clever.covariate>500),]
-
-
-quantile(disease.df$tte,prob=seq(0,1,by=0.01))
-quantile(disease.df$tte[!disease.df$censor],prob=seq(0,1,by=0.01))
-
-m = Q.star.by.hosp.df(hosp.df)
-m$epsilon
-
-
-hosp.df = hosp.df[hosp.df$clever.covariate!=0,]
-m2 = Q.star.by.hosp.df.test.offset(hosp.df)
-
-summary(n1 - hosp.df$Q)
-
-guy.54 <- hosp.dfs[[1]][789:(789+54-1),]
-
-cumprod(1 - (guy.54$Q + Q.star.and.epsilons[[1]]$epsilon))
-cumprod(1 - guy.54$Q)
-
-
-head(hosp.df)
-summary(hosp.df$clever.covariate)
-
-sapply(reduced.hosp.dfs, function(x) max(x$clever.covariate))
-
-sapply(Q.star.and.epsilons,"[[",'epsilon')
-
-1/50079
-1/0.025
-
-system.time(model <- glm(n1~clever.covariate-1, 
-              family=binomial,
-              offset=qlogis(Q), 
-              data=hosp.dfs[[1]]))
-
-# End Gold
-
-
-
-
-
-
-Q.star <- lapply(Q.star.and.epsilons,"[[",'Q')
-epsilons <- sapply(Q.star.and.epsilons,"[[",'epsilon')
-
-match(hosps[1],disease.df$hosp)[1]
-disease.df$hosp[1:2]
-
-colnames(Q.star)
-
-disease.df$tte[1]
-
-hosp.df <- hosp.dfs[[1]]
-hosp.df[789:(789+54-1), c('Q','S0','clever.covariate','time','censor','n1')]
-
-predict(model, type='response') [789:(789+54-1)]
-
-model <- glm(n1~clever.covariate-1,family=binomial, offset=qlogis(Q),data=hosp.df)
-
-identical(min(Q.star),0)
-head(which(Q.star[,6]==max(Q.star)))
-
-Q.star[549:558,6]
-
-head(which(Q.star[],0))
-
-Q.star <- do.call(cbind,Q.star)
-# save(Q.star, file='survival/Q.star.object')
-
-
-# For some reason it is way faster to lapply and then combine.
-Q.star <- do.call(cbind, Q.star)
-
-colnames(Q.star)
-
-Q.star.to.S.ratio <- function(Q.star) {
-  starts <- cumsum(c(1,disease.df$tte[-length(disease.df$tte)]))
-  ends <- c(starts[-1]-1, sum(disease.df$tte))
-  
-  cut.S <- mapply(function(x,y) {
-                    a <- apply(Q.star[x:y,,drop=FALSE],2,cumprod)
-                    dim(a) <- c(y-x+1,ncol(Q.star))
-                    a
-                  },
-                  starts, ends, SIMPLIFY=FALSE)
-  
-  S.ratio <- lapply(cut.S, function(x) apply(x,2,S0.to.S.ratio))
-  ret <- do.call(rbind, S.ratio)
-  colnames(ret) <- colnames(Q.star)
-  ret
-}
-
-hosp.df.by.S.ratio <- function(hosp.df, S.ratio, Q.star){
-  hosp.df$clever.covariate <- with(hosp.df, (g1*(1/g2))*S.ratio)
-  hosp.df$Q <- Q.star
-  hosp.df
-}
-
-new.S.ratio <- Q.star.to.S.ratio(Q.star)
-
-head(new.S.ratio[,'Hôpital Lanaudière'],100)
-
-head(hosp.dfs[['Hôpital Lanaudière']])
-head(new.hosp.dfs[['Hôpital Lanaudière']])
-
-
-new.hosp.dfs <- mapply(hosp.df.by.S.ratio, 
-                       hosp.dfs, 
-                       data.frame(new.S.ratio),
-                       data.frame(Q.star), SIMPLIFY=FALSE)
-
-
-
-disease.df$hosp[1]
-
-
-new.Q.star <- lapply(new.hosp.dfs, Q.star.by.hosp.df)
-
-
-
-
-
-disease.df[145,]
-
-cut.S[[145]]
-
-which(sapply(sapply(cut.S,dim),is.null))
-
-dim(cut.S[[1]])
-
-S0.to.S.ratio <- function(S0)
-  S0[length(S0)]/S0
-
-
-S <- do.call(rbind,cut.S)
-
-
-
-cut.S[[1]]
-
-which(starts==76550)
-
-which(disease.df$tte==0)
-
-starts[145]
-ends[145]
-
-disease.df[143:147,]
-
-?mapply
-
-head(starts)
-head(ends)
-
-ends <- c(0,disease.df$tte[-nrow(nrow(disease.df))])
-
-coef.val <- glm(n1~clever.covariate-1, offset=qlogis(Q), data=hosp.dfs[[1]])$coef['clever.covariate']
-
-
-
-# Q.init <- mclapply(outcome.S0, S0.to.Q)
-# S.ratio.init <- mclapply(outcome.S0, S0.to.S.ratio)
-
-init.mat <- data.frame(Q=unlist(Q.init), 
-                       S.ratio=unlist(S.ratio.init), S0=unlist(outcome.S0), 
-                       g1=rep(prob.of.exposure.to.exposed, times=disease.df$tte), 
-                       g2=censor.probs)
-
-init.mat$clever.covariate <- with(init.mat, S.ratio / (g1 * g2))
-init.mat$time <- unlist(lapply(disease.df$tte,seq.int))
-init.mat$tte <- rep(disease.df$tte, disease.df$tte)
-init.mat$censor <- rep(disease.df$censor, disease.df$tte)
-init.mat$n1 <- with(init.mat,!censor & (time==tte))
-
-debugonce(glm.fit)
-
-efficient.influence.func <- glm(n1~Q+clever.covariate-1,
-                                data=init.mat,
-                                family=binomial)
-
-
-
-p=(predict(glmnet.predict.exposure, newx=disease.big.matrix, type='response'))
-s=9
-exposure.mat <- p[,,s]
-
-extract.betas <- function(model,outcome,s)
-  which(model$beta[[outcome]][,s]!=0)
-
-
-which(glmnet.predict.exposure$beta[['Hôpital Pierre-Le Gardeur']][,s]!=0)
-
-sapply(unique(disease.df$hosp),
-       extract.betas, model=glmnet.predict.exposure,s=9)
-
-table(exposure.mat[,1], big.hosp.mat[,1])
-
-platt.scale <- function(y,x) predict(glm(y~x,family=binomial), type='response')
-
-# Fix up an dummy variable matrix of the exposures.
-grep('^hosp',colnames(disease.big.matrix), value=TRUE)
-big.hosp.mat <- model.matrix(~hosp-1,disease.df['hosp'])
-colnames(big.hosp.mat) <- gsub('^hosp','',colnames(big.hosp.mat))
-big.hosp.mat <- big.hosp.mat[,colnames(exposure.mat)]
-
-# Platt scale all the predictions against the dummy variables.
-scaled.exposure.prob <- mapply(platt.scale, data.frame(big.hosp.mat), data.frame(exposure.mat))
-
-colnames(big.hosp.mat)
-testo=as.numeric(disease.df$hosp=='Hôpital Pierre-Le Gardeur')
-
-
-which(glmnet.predict.exposure$beta$'Hôpital Pierre-Le Gardeur'[,23]!=0)
-
-(which(glmnet.predict.exposure$beta[,s]!=0))
-
-glm(big.hosp.mat[,1] ~ exposure.mat[,1], family=binomial)
-
-
-
-dim(exposure.mat)
-
-str(glmnet.predict.exposure)
-
-censor.probs <-drop.probs(
-  y=Surv(disease.df$tte, disease.df$censor),
-  x=disease.big.matrix,
-  s=12,
-  times=disease.df$tte)
-
-length(censor.probs)
-
-disease.df$tte
-
-glmnet.predict.censor
-
-x=disease.big.matrix 
-y=Surv(disease.df$tte, disease.df$censor)
-s=12
-
-
-
-which(glmnet.predict.censor$beta[,36]!=0)
-
-
-
-
-system.time(glmnet.predict.censor <- 
-              glmnet(x=disease.big.matrix, 
-                     y=,
-                     family='cox' ))
-
-apply(glmnet.predict.outcome$beta[,1:22],2,function(x) names(which(x!=0)))
-
-
-apply(glmnet.predict.outcome$beta[,1:42],2,function(x) grep('hosp',names(which(x!=0)),value=TRUE))
-
-
-?grep
-
-
-glmnet.predict.outcome<-cv.glmnet(x=disease.big.matrix, 
-                                  y=Surv(disease.df$tte, !disease.df$censor),
-                                  family='cox',
-                                  parallel=TRUE)
-
-
-
-str(glmnet.predict.outcome)
-
-save(glmnet.predict.outcome,file=output.file)
+final.iteration <- iteration - 1
+
+# Make a tte matrix.
+base.tte <- do.call(cbind,outcome.S0.and.Q.list$tte)
+
+# Make a matrix of the update order.
+row.col <- as.matrix(do.call(rbind, 
+                    lapply(hosps, function(hosp) 
+                          data.frame(row=which(disease.df$hosp==hosp),
+				                     col=match(hosp,colnames(base.tte))))))
+
+# Extract a final Q.star
+ids <- sapply(reduced.hosp.dfs, function(x) x$id)
+final.Q.star <- mapply(function(x,y) split(x[,final.iteration],y), Q.iteration, ids)
+# Calculate the updated tte from the final Q.star
+final.updated.tte <- unlist(lapply(final.Q.star, function(x) sapply(x, sum)))
+updated.tte.matrix <- base.tte
+updated.tte.matrix [row.col] <- final.updated.tte
+
+# A couple of renames before the save
+tte.mat <- updated.tte.matrix
+Q.star.list <- final.Q.star
+epsilon.mat <- epsilon.iteration
+save(tte.mat, Q.star.list, epsilon.mat, file=output.file)
