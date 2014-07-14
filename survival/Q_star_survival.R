@@ -4,15 +4,16 @@ suppressPackageStartupMessages(library(survival))
 registerDoMC(cores=10) # For 10 folds
 options(mc.cores=12)
 
-# arguments<-c('data_dump/disease_ami.object', 'data_dump/rf_G_model_ami.object', 'survival/data_dump/glmnet_Q_ami.object', 'survival/data_dump/glmnet_g_censor_ami.object', 'survival/data_dump/Q_star_ami.object', 'survival/Q_star_survival.R')
 arguments <- commandArgs(trailingOnly=TRUE)
+# For testing purposes.
+if (interactive()) arguments<-c('data_dump/disease_ami.object', 'data_dump/rf_G_model_ami.object', 'survival/data_dump/glmnet_g_censor_ami.object', 'survival/data_dump/glmnet_Q_ami.object', 'survival/Q_star_survival.R', 'survival/data_dump/Q_star_ami.object')
 
 object.file <- arguments[1]
 rf.G.object <- arguments[2]
-survival.Q.object <- arguments[3]
-survival.censor.object <- arguments[4]
-output.file <- arguments[5]
-R.file <- arguments[6] # Because I can't get the Makefile to not pass these.
+survival.censor.object <- arguments[3]
+survival.Q.object <- arguments[4]
+R.file <- arguments[5] # Because I can't get the Makefile to not pass these.
+output.file <- arguments[6]
 
 load(object.file)
 load(rf.G.object)
@@ -266,7 +267,8 @@ row.col <- as.matrix(do.call(rbind,
 ids <- sapply(reduced.hosp.dfs, function(x) x$id)
 final.Q.star <- mapply(function(x,y) split(x[,final.iteration],y), Q.iteration, ids)
 # Calculate the updated tte from the final Q.star
-final.updated.tte <- unlist(lapply(final.Q.star, function(x) sapply(x, sum)))
+final.updated.tte <- unlist(lapply(final.Q.star, function(x) sapply(x, 
+                                                  function(y) sum(cumprod(1-y)) )))
 updated.tte.matrix <- base.tte
 updated.tte.matrix [row.col] <- final.updated.tte
 

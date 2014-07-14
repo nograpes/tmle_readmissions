@@ -172,6 +172,22 @@ To combine our both our models G and Q, we fit twenty (one for each hospital) on
 % We updated for Q*
 To avoid convergence problems for this one parameter model, we fit the parameter using a quasi-Newton method simultaneously discovered by Broyden\supercite{broyden_convergence_1970}, Fletcher\supercite{fletcher_new_1970}, Goldfarb\supercite{goldfarb_family_1970} and Shanno\supercite{shanno_conditioning_1970} (BFGS).
 
+\subsection{Time-to-event analysis}
+% As described in Stitleman.
+We also modeled the time-to-readmission as a function of the hospital the patient receieved care at. Thirty days is an arbitrary cutoff, time-to-event allows us to differentiate between more nuanced differences in readmission times.
+
+
+% Instead of regressing every unit of time following discharge, we opted to preform a Cox proportional hazards model.
+
+% Using the Cox proportional hazards model had the major advantage of not being computationally intense; a logistic regression regression would have required roughly 7 million data points (one for each day after discharge for each person) fit against thousands of variables. 
+
+
+
+
+% Estimating the survivor function from the Cox proportional hazards function.
+
+% 
+
 \subsection{Software}
 The data were cleaned and prepared for statistical analysis using the Postgres relational database (version \Sexpr{system("psql --version | rev | cut -d' ' -f 1 | rev", intern=TRUE)}). We implemented our models using the R statistical package (version \Sexpr{getRversion()}) \supercite{team_r:_2014}. We implemented the random forest using the "bigrf" package (version \Sexpr{packageVersion('bigrf')}) \supercite{lim_bigrf:_2014}. We implemented the GLM fitting using coordinate descent using the "glmnet" package (version \Sexpr{packageVersion('glmnet')}) \supercite{friedman_regularization_2010}. We plotted our figures using the "ggplot2" package (version \Sexpr{packageVersion('ggplot2')}) \supercite{wickham_ggplot2:_2009}. All the code to develop used to fit clean our data, fit our models, and layout this paper is \href{https://github.com/nograpes/tmle_readmissions}{available for download at Github}.
 
