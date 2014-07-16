@@ -6,7 +6,7 @@ options(mc.cores=12)
 
 arguments <- commandArgs(trailingOnly=TRUE)
 # For testing purposes.
-if (interactive()) arguments<-c('data_dump/disease_ami.object', 'data_dump/rf_G_model_ami.object', 'survival/data_dump/glmnet_g_censor_ami.object', 'survival/data_dump/glmnet_Q_ami.object', 'survival/Q_star_survival.R', 'survival/data_dump/Q_star_ami.object')
+if (interactive()) arguments<-c('data_dump/disease_heart_failure.object', 'data_dump/rf_G_model_heart_failure.object', 'survival/data_dump/glmnet_g_censor_heart_failure.object', 'survival/data_dump/glmnet_Q_heart_failure.object', 'survival/Q_star_survival.R', 'survival/data_dump/Q_star_heart_failure.object')
 
 object.file <- arguments[1]
 rf.G.object <- arguments[2]
@@ -66,8 +66,6 @@ get.surv.at.new.x <- function (baseline, new.x, times) {
     }
 	x
   })
-  # Later on, when I need the time-to-event, I'll need the "long" form as well.
-  # Wastes memory, but will be super-convenient.
   tte <- mapply(function(x,y) sum(base^(x)), c(scaled.new.risk), times)
   list(surv = surv, tte = tte)
 }
@@ -113,6 +111,10 @@ drop.all.probs <- function(glmnet.model, y, x, s.type='lambda.min') {
   s.ratio <- mclapply(surv, function(x) lapply(x,S0.to.S.ratio))
   names(tte) <- names(cond.fail) <- names(s.ratio) <- names(hazard) <- names(surv) <- hosps
   list(surv=surv, cond.fail=cond.fail, hazard=hazard, s.ratio=s.ratio, tte=tte)
+}
+
+get.tte.by.added.epsilon <- function(baseline, ){
+
 }
 
 # S0 and Q.
@@ -198,11 +200,13 @@ reduced.hosp.dfs <- lapply(hosp.dfs, function(x) x[x$clever.covariate!=0,])
 
 # This is a practical consideration to prevent positivity violations.
 # There will be very little data at the end of the survival curve.
-# By clipping the 1% quantile, we can remove these violations, and prevent
+# By clipping the 2.5% quantile, we can remove these violations, and prevent
 # having enormous weights (1600) over a period of 1000 days, which overwhelms
 # anything else in the model.
-cutoff <- quantile(disease.df$tte,0.99)
-reduced.hosp.dfs <- lapply(reduced.hosp.dfs, function(x) x[x$time<cutoff,])
+#cutoff <- quantile(disease.df$tte,0.975)
+clever.covariate.cutoff <- quantile(hosp.df$clever.covariate,0.99)
+#reduced.hosp.dfs <- lapply(reduced.hosp.dfs, function(x) x[x$time<cutoff,])
+reduced.hosp.dfs <- lapply(reduced.hosp.dfs, function(x) x[x$clever.covariate<clever.covariate.cutoff,])
 
 # I need the epsilons for several reasons.
 Q.star.by.hosp.df <- function(hosp.df) {
@@ -253,6 +257,36 @@ while (any((epsilon.iteration[iteration-1,]) > 1e-10)) { # Will change to delta
 	iteration <- iteration + 1
 }
 final.iteration <- iteration - 1
+
+
+# Functions to extract the tte based on the new epsilon
+compute.tte.by.baseline.and.epsilon <- function(baseline, x, epsilon) {
+  scaled.x <- scale(x, center = baseline$center, scale = FALSE)
+  scaled.risk <- exp(scaled.x %*% baseline$coef)
+  base <- baseline$surv
+  surv <- base^x
+  cond.fail <- get.conditional.failure.at.new.x(surv)
+  cond.fail.w.epsilon <- cond.fail + epsilon
+  surv.w.epsilon <- cumprod(cond.fail.w.epsilon)    
+  sum(surv.w.epsilon) # The final time-to-event
+}
+
+
+compute.tte.by.epsilon <- function(glmnet.model, y, x, s.type='lambda.min', epsilon) {
+  s <- match(glmnet.model[[s.type]], glmnet.model$lambda)
+  betas <- get.betas(glmnet.model, s)
+  cut.x <- get.cut.x(x, betas)
+  baseline <- get.kalb.prent.surv(y, cut.x, coef=betas)
+  # Call compute.tte.by.baseline.and.epsilon.
+#  sapply(seq(nrow(cut.x)), function(i) compute.tte.by.baseline.and.epsilon(
+#                                         baseline = baseline,
+#                                         x = cut.x[i,],
+#										 epsilon = epsilon[i])
+#		)
+   mapply(compute.tte.by.baseline, data.frame(t(cut.x)), epsilon, 
+                                   MoreArgs=list(baseline=baseline))
+}
+
 
 # Make a tte matrix.
 base.tte <- do.call(cbind,outcome.S0.and.Q.list$tte)

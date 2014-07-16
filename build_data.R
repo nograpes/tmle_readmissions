@@ -57,7 +57,7 @@ make.matrix<-function(table_name,item_name,threshold=30){
   id.discharge.item <- id.discharge.item[order(id.discharge.item$id,id.discharge.item$discharge),]
   as.matrix(id.discharge.item[,-(1:2)])
 }
-tables <- c('procs_one_year', 'diags_one_year', 'drugs_one_year')
+tables <- c('procs_one_year', 'diags_w_outpatient_one_year', 'drugs_one_year')
 item.names <- c('procedure', 'diagnosis', 'drug')
 item.matrices <- mapply(make.matrix,tables,item.names,SIMPLIFY=FALSE) # 378s
 names(item.matrices) <- item.names
