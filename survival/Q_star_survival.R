@@ -32,6 +32,7 @@ get.cut.x <- function(x, betas)
   x[,names(betas)]
 
 
+# Actually, it uses Fleming and Harrington, not Kalbfleisch and Prentice.
 get.kalb.prent.surv <- function(y, x, coef) {
   # Clean up x
   x <- as.matrix(x)
@@ -200,7 +201,9 @@ reduced.hosp.dfs <- lapply(hosp.dfs, function(x) x[x$clever.covariate!=0,])
 # having enormous weights (1600) over a period of 1000 days, which overwhelms
 # anything else in the model.
 #cutoff <- quantile(disease.df$tte,0.975)
-clever.covariate.cutoff <- quantile(hosp.df$clever.covariate,0.99)
+
+all.clever.covariate <- unlist(lapply(reduced.hosp.dfs,"[[","clever.covariate"))
+clever.covariate.cutoff <- quantile(all.clever.covariate,0.99)
 #reduced.hosp.dfs <- lapply(reduced.hosp.dfs, function(x) x[x$time<cutoff,])
 reduced.hosp.dfs <- lapply(reduced.hosp.dfs, function(x) x[x$clever.covariate<clever.covariate.cutoff,])
 
