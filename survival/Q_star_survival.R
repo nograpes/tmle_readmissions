@@ -113,10 +113,6 @@ drop.all.probs <- function(glmnet.model, y, x, s.type='lambda.min') {
   list(surv=surv, cond.fail=cond.fail, hazard=hazard, s.ratio=s.ratio, tte=tte)
 }
 
-get.tte.by.added.epsilon <- function(baseline, ){
-
-}
-
 # S0 and Q.
 # debugonce(drop.all.probs)
 outcome.S0.and.Q.list <- drop.all.probs(

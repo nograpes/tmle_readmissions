@@ -374,25 +374,43 @@ We did not atempt to measure whether \emph{individual} readmissions were prevent
 The counterfactual model clarifies the study question: What is the difference in the proportion with an emergency readmission within 30 days if all patients had attended Hospital A vs Hospital B? The notion of a "preventable" readmission is implicit; if a patient would have been readmitted if treated at another hospital, then the readmission was preventable. Since we cannot directly observe the desired proportions, we estimate it by attempting to recreate exchangeability (control for confounding) among the populations that visited different hospitals.
 
 % No mediators.
-Following other hospital readmission work, we did not include hospital length of stay as a risk factor for readmission. Although we have strong reason to believe that the length of stay may affect readmission risk (and varies between hospitals), it acts as a mediator between hospital care and readmission; if we included it in our models, we risk biasing our estimate of the hospital's effect on readmission. 
-
-However, unlike many other hospital readmission studies, we also excluded all diagnoses and procedures that occurred during the hospital admission, because these covariates were also effectively mediators between hospital care and readmission. For example, hospital-acquired infections are one source of preventable readmissions; if we controlled for diagnosis codes indicating hospital-acquired infections, we would attenuate the effect that the hospital care was having on readmissions.
+Following other hospital readmission work, we did not include hospital length of stay as a risk factor for readmission. Although we have strong reason to believe that the length of stay may affect readmission risk (and varies between hospitals), it acts as a mediator between hospital care and readmission; if we included it in our models, we risk biasing our estimate of the hospital's effect on readmission. However, unlike many other hospital readmission studies, we also excluded all diagnoses and procedures that occurred during the hospital admission, because these covariates were also effectively mediators between hospital care and readmission. For example, hospital-acquired infections are one source of preventable readmissions; if we controlled for diagnosis codes indicating hospital-acquired infections, we would attenuate the effect that the hospital care was having on readmissions.
 
 % Competing risks.
-The major competing risk for hospital readmission is death, but others include moving outside the study area, or admission to a hospital for a non-emergency reason. If patients died within 30 days of discharge more often at one hospital than another, we could have biased our estimate of readmission risk.
-
-% A selection bias.
-Similarly, if patients died during the hospitalization more often at some hospitals than others, it could have created a selection bias in which hospitals with better care were discharging sicker (but still living) patients, who would be more likely to be readmitted. 
+The major competing risk for hospital readmission is death, but others include moving outside the study area, or admission to a hospital for a non-emergency reason. In our 30-day readmission risk analysis, these effects were essentially ignored, but in the TMLE survival analysis we modeled the probability of right censorship.If patients died within 30 days of discharge more often at one hospital than another, we could have biased our estimate of readmission risk. Similarly, if patients died during the hospitalization more often at some hospitals than others, it could have created a selection bias (left censorhsip) in which hospitals with better care were discharging sicker (but still living) patients, who would be more likely to be readmitted. This effect could have biased both of our results.
 
 % 30-day problem
-Finally, there is no special significance of 30 days in readmission, except for the fact that it is (recently) widely used as a cutoff. In future analyses, we plan to study the effect of hospital care on the time-to-readmission, to avoid any arbitrary cutoff times.   
+There is no special significance of 30 days in readmission, except for the fact that it is (recently) widely used as a cutoff. Interestingly, the distribution of expected survival times in the first sixty days appears to be bimodal (although some hospitals did not display this property), but the "dip" between the modes occurs a little earlier, roughly around day 20. These two modes suggest sharp changes in the conditional failure probability, which may reflect differing mechanisms of hospital's effect on readmission. 
 
 % Readmission isn't always a bad thing. Maybe the probability of admission has changed.
 Differing \emph{admission} practices can strongly affect the rates of readmission. Since most patients (x\% in this cohort) return to the same hospital after readmission, if a hospital is more likely to admit patients than others, it will have a higher readmission rate. In some cases, like a major trauma, admission is certain, and in other cases, like a mild infection, admission is very improbable, but in most cases, there is some uncertainty in how patients are admitted. In future work, we plan to study the effect of the probability of admission on readmission.
 
 % The influenza cohort.
-Entry to our cohort was dependent on having one diagnosis of a respiratory illness in an inpatient or outpatient setting. 
+Entry to our cohort was dependent on having one diagnosis of a respiratory illness in an inpatient or outpatient setting. Respiratory illness was defined rather broadly, including extremely common diagnoses such as "cough". We expect that the the majority of 65-year old patients who would be hospitalized would have at least one respiratory illness diagnosis in an outpatient setting. 
 
+Strictly speaking, however, we cannot generalize our results to the non-respiratory illness population. 
+
+% Using TMLE in general.
+Non-parametric techniques such as random forest don't allow us to look (easily) at the individual effects of the confounders. This is somewhat disconcerting; we would like to be able to identify if the confounders that we expect to have an effect on the outcome are having the expected effect. We summarized the densities of the effects a few classes of variables, but this still does not allow the fine-grained analysis typical in an epidemiologic study. Even in a semiparameteric model, such as the Cox model we used for the survival analysis where we could identify hazard ratios directly from the model, it is difficult to analyze hundreds of fitted parameters in a meaningful way. 
+
+Hospital readmissions are confounded by a vast spectrum of health-related states; in the absence of a clear theoretical basis of the structure of that confounding, we have a few options. We can 1) identify relatively few, well-understood and measureable confounders to include in our model, or 2) forgo any theoretical understanding of the structure of confounding, and attempt to identify the broadest measureable set of even faintly plausible confounders.
+
+
+
+In the absence of a clear theoretical basis of the structure of the confounding, we have to choose among two broad appraoches. We can 1) ignore the complexity and include confounders that we understand well and can measure well or 2) forgo any theoretical understanding of the structure of confounding, and attempt to identify the broadest measureable set of confounders.
+
+Indeed, the first option has many advantages. In a situation where data collection is expensive, you want to choose the most efficient set of confounders. Additionally, by reducing the confounders to a well-understood few, your model gains credibility because you can show that the confounders are having the expected effect.
+
+In the second option we lose the ability assess the "face validity" of our model, and we also risk inducing bias (such as M-bias).
+
+However, the recent availability of large scale healthcare administrative data has put us into the situation where the second choice is at least possible; our data are no longer too expensive to collect. Additionally, because we have good reason to believe that readmission is confounded by a vast spectrum of health states, and because the structure of that confounding is poorly understood, we might as well use what we have.
+
+We argue that in this situation, where we have a large dataset, thousands of measureable confounders, and little understanding of the structure of confounding, the second option is more appropriate.
+
+
+Our work suggests that the difference between the approaches is not only a practical one; in assessing the effect of hospitals on readmission, it has a substantive effect as well.
+
+We argue that if a large number of covariates are to be used, we lose the ability to identify individual effects, so we might as well take advantage of non-parametric machine learning techniques. 
 
 % Differential misclassification due to coding practices.
 

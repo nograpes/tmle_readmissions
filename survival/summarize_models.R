@@ -1,5 +1,6 @@
-library(reshape2)
-library(ggplot2)
+suppressPackageStartupMessages(library(reshape2))
+suppressPackageStartupMessages(library(ggplot2))
+
 # Post-process the Q* file.
 load('survival/data_dump/Q_star_ami.object')
 # Q.star.list epsilon.mat tte.mat
