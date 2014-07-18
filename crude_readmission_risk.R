@@ -36,6 +36,6 @@ logistic.mat<-exp(coef.mat[match(paste0('hosp',levels(disease.df$hosp))[-base],r
 cox.model <- coxph(Surv(disease.df.cc$tte,!disease.df.cc$censor)~.,
                    data=disease.df.cc[x.vars])
 hazards.mat <- cbind(Estimate=exp(cox.model$coef), exp(confint(cox.model)))
-hazards.mat <- hazards.mat[match(paste0('hosp',levels(disease.df$hosp))[-base],rownames(coef.mat)),]
+hazards.mat <- hazards.mat[match(paste0('hosp',levels(disease.df$hosp))[-base],rownames(hazards.mat)),]
 
 save(hazards.mat,logistic.mat,file=output.file, base=base)
