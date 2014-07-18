@@ -1,7 +1,7 @@
 suppressPackageStartupMessages(library(survival))
 suppressPackageStartupMessages(library(RPostgreSQL))
 arguments<-commandArgs(trailingOnly=TRUE)
-if(interactive()) arguments<-c('data_dump/disease_heart_failure.object','data_dump/crude_readmissions_risk_heart_failure.object')
+if(interactive()) arguments<-c('data_dump/disease_heart_failure.object','data_dump/crude_readmissions_risk.object')
 object.file<-arguments[1]
 output.file<-arguments[2]
 load(object.file)
@@ -29,13 +29,13 @@ contrasts(disease.df.cc$hosp) <- contr.treatment(levels(disease.df$hosp), base=b
 
 
 logistic.model <- glm(disease.df.cc$day_30_readmit~.,data=disease.df.cc[x.vars])
-# The suppressMessages is to catch the Waiting for profiling...
 coef.mat <- cbind(Estimate=coef(logistic.model),suppressMessages(confint(logistic.model)))
 logistic.mat<-exp(coef.mat[match(paste0('hosp',levels(disease.df$hosp))[-base],rownames(coef.mat)),])
+
 
 cox.model <- coxph(Surv(disease.df.cc$tte,!disease.df.cc$censor)~.,
                    data=disease.df.cc[x.vars])
 hazards.mat <- cbind(Estimate=exp(cox.model$coef), exp(confint(cox.model)))
-hazards.mat <- hazards.mat[match(paste0('hosp',levels(disease.df$hosp))[-base],rownames(hazards.mat)),]
+hazards.mat <- hazards.mat[match(paste0('hosp',levels(disease.df$hosp))[-base],rownames(coef.mat)),]
 
-save(hazard.mat,logistic.mat, base=base, file=output.file)
+save(hazards.mat,logistic.mat,file=output.file, base=base)
