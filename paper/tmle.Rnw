@@ -8,7 +8,7 @@
 \usepackage[left=1.27cm, top=1.27cm, right=1.27cm, bottom=2.54cm]{geometry}
 
 \usepackage{pbox}
-\setmainfont[Scale=1.25]{Cambria}
+\setmainfont[Scale=1]{Cambria}
 \linespread{1.25}
 %\setmainfont[Ligatures=TeX,Scale=0.95]{Linux Libertine O}
 \usepackage{pdflscape}
@@ -62,7 +62,7 @@ Research Design: To estimate the marginal effect of care at different hospitals 
 
 Results: Within 30 days of discharge, there were \Sexpr{readmission.props('heart_failure')} heart failure readmissions, \Sexpr{readmission.props('pneumonia')} pneumonia readmissions, and \Sexpr{readmission.props('ami')} AMI readmissions. Within each hospital, there was a wide variation in crude readmission risk across the twenty hospitals for pneumonia \Sexpr{readmission.props('pneumonia')}, heart failure \Sexpr{readmission.props('heart_failure')}, and AMI \Sexpr{readmission.props('ami')}. However, after control for confounding, the marginal risk for readmission within all hospitals was nearly the same (within each admission category).
 
-Conclusion: Although crude readmission risk estimates between hospitals may show wide variation, there may be little difference in marginal risks after control for confounding.
+Conclusion: Although crude 30-day readmission risk estimates show variation between different hospitals, no difference was found in marginal risks after control for confounding.
 
 \end{abstract}
 
@@ -87,7 +87,6 @@ By summarizing confounders into crude risk scores, we risk "residual confounding
 Non-parametric machine learning techniques are available that will let us accurately discriminate patient readmission risk using hundreds of variables in a computationally efficient way. Furthermore, because they are non-parametric, we avoid having to specify a functional form, and can find complex "interactions" between variables. On the other hand, these non-parametric techniques don't allow us to isolate (target) the effect of specific variables (such as care at a particular hospital) on readmission risk. 
 
 % Instead of summarizing comorbidity scores using expert knowledge, we use the data to develop a comorbidity score specific to the problem at hand.
-
 The targeted maximum likelihood estimator (TMLE), is a doubly-robust technique that uses propensity scores to estimate target parameters of interest from non-parametric (or parametric) models. To use TMLE, a model is developed to estimate the probability of exposure (the propensity score), and also fit another model to estimate the probability of outcome. These two probabilities are combined in a parametric model with only the parameter of interest, inversely weighted by the probability of exposure, and offset by the probability of the outcome. In this way, the discriminative power of non-parametric models can be used to extract estimates of parameters of interest. 
 
 % What is the study question?
@@ -105,12 +104,10 @@ We used a cohort extracted from a Canadian provincial (Quebec) administrative da
 From among this cohort, we selected hospital discharges for those who had accrued at least one continuous year in the cohort preceding the time of admission. We restricted our data to only the discharges from the twenty hospitals with the most discharges of patients 65 years or older within the study period; the twenty hospitals accounted for 75\% of all such discharges.  We only selected hospital discharges which resulted from hospital stays of at least one day. Therefore, the earliest possible hospital discharge was January 2, 1997.
 
 \subsubsection{Hospital readmissions}
-The unit of analysis was the hospital discharge; a person could be discharged multiple times. A hospital readmission was defined as an emergency hospital admission to any Quebec hospital in the 30 days following a discharge.  A person who died or had a non-emergency readmission in the 30 days following discharge was considered not readmitted.
+The unit of analysis was the hospital discharge; a person could be discharged multiple times. A hospital readmission was defined as an emergency hospital admission to any Quebec hospital in the 30 days following a discharge.  A person who died or had a non-emergency readmission in the 30 days following discharge was considered not readmitted. For the purposes of the survival analysis, "time zero" was the day of discharge; a person was considered right-censored if, before an emergency readmission, they died, had a non-emergency readmission, they changed residence to a location outside of Quebec, or the study ended. 
 
 \subsubsection{Disease types}
 From among the identified hospital discharges, we selected only those with one of three high-volume admission diagnoses with high rates of hospital readmissions: pneumonia, acute myocardial infarction (AMI), and heart failure, the three initial conditions selected by the Centers for Medicare and Medicaid Services (CMS) to implement the Hospital Readmissions Reduction Program mandated by the Affordable Care Act. We identified each of the admission diagnoses using ICD-9 codes; for pneumonia we used codes ranging from 480-487, for heart failure we used all 428 codes, and for AMI we used all 410 codes. The following methods were applied individually to all three disease subsets. 
-
-% Should I talk about the anonymization of hospitals?
 
 % We had confounders.
 \subsection{Confounders}
@@ -126,68 +123,88 @@ We believed that residential location would strongly affect the probability of a
 \section{Modeling with targeted maximum likelihood estimation}
 To esimate the marginal risk of 30-day readmission for each of the twenty hospitals, we used targeted maximum likelihood estimation. The process consisted of three steps 1) estimation of a propensity score ($g$), 2) an initial estimate of the risk of readmission based on all confounders and the variables for each of the hospitals ($Q$), and 3) a final step in which we fit twenty models ($Q*$), in which a single parameter was fit to the inverse probability of exposure to that hospital (as estimated by $g$), and each offset by the marginal readmission risk of attending that hospital (as estimated by $Q$). 
 
+% The terms must be described in detail.
+\begin{equation}
+\label{logistic_clever_covariate} 
+h(A,W)=\frac{I(A=a)}{g(A=a|W)}
+\end{equation}
+
 \subsection{Random forest}
-To estimate both models $g$ and $Q$, we used a random forest, a non-parametric model based on decision trees \supercite{breiman_random_2001}. Decision trees repeatedly split data into partitions that are as homogenous as possible with respect to the outcome of interest. Complex interactions and non-linearities are naturally modeled within this framework. Random forest improves decision trees by using bootstrap aggregation (bagging); multiple decision trees are grown on bootstrap replicates (sampled with replacement) to avoid overfitting. Additionally, within each tree, only a sample of the covariates is used (in our case we used a square root of the number of variables, rounded down, included in the model).
+To estimate both models $g$ and $Q$, we used a random forest, a non-parametric model based on decision trees \supercite{breiman_random_2001}. Decision trees repeatedly split data into partitions that are as homogenous as possible with respect to the outcome of interest (specifically measured with the Gini coefficient\supercite{gini_variabilita_1912}). Complex interactions and non-linearities are naturally modeled within this framework. Random forest improves decision trees by using bootstrap aggregation (bagging); multiple decision trees are grown on bootstrap replicates (sampled with replacement) to avoid overfitting. Additionally, within each tree, only a sample of the covariates is used (in our case we used a square root of the number of variables, rounded down, included in the model).
 
-For both $Q$ and $g$, we arbitrarily chose to grow 1200 trees, and then measured the accuracy as a function of the number of trees to ensure that growing further trees would be unlikely to significantly improve accuracy. When measuring the accuracy for each discharge, we only used trees for which the discharge was "out-of-bag", that is, we only used trees for which the bootstrap sample did not include the discharge.
-
-\subsubsection{Model $g$ - probability of exposure}
-% We built a model G
-Using random forest, we developed a multinomial model $g$ that predicted the probability of attending each of the twenty hospitals (a propensity score) as a function of all the measured confounders. 
-
-Random forest traditionally classifies each item by majority vote; we converted this into a probability by taking the proportion of votes for each hospital (using only out-of-bag trees for each discharge).
-
-
-% How the Gini coefficient works.
-% Make it clear that you didn't invent this.
-To assess the importance of the variables in predicting which hospital a patient will choose, for each tree, we calculate the increase in homogeneity of classes between the root of the tree and the leaves. To measure the homogeneity of classes, we repurpose a metric that is typically used to measure equality (homogeneity) of income, the Gini coefficient \supercite{gini_variabilita_1912}. The homogeneity is defined as the sum of squared proportions in each class (hospital), with a maximum of 1 (all discharges at the same hospital) and a minimum of 1/20 (the discharges were evenly divided between the 20 hospitals). If the patients within the leaves of the tree made relatively homogeneous hospital choices, this variable predicts hospital choice well.
-
-% We calibrated it based on the weights of the hospital. It was multinomial in that we predicted 20 hospitals. We measured the calibration, similarly only using out-of-bag discharges. We investigated the top 10 varibales most important variables, as measured by the Gini coefficient. 
- 
-% How we weighted -- still haven't put in how it was the *Gini* that was weighted.
-Because the model was used solely to estimate the \emph{probability} of admission to to specific hospitals (and not to predict exactly which hospital was attended), we configured the model to favour calibration over discrimination: we weighted each of the twenty predicted hospitals by the inverse of the proportion of discharges at that hospital. We multiplied each proportion used to calculate the Gini coefficient by this weight.
-
-
-\subsubsection{\(Q\) model - probability of outcome}
-% We built a model Q
-% We built another random forest model, very similar to the model for G, except that instead of predicting the choice of hospital, we predicted 30-day readmission. We also included a set of 19 indicator variables (or was it twenty?) for the hospital. This was also calibrated based on the inverse of the proportion of those readmitted.
-For the  \(Q\) model, we developed another random forest model, very similar to the \(g\) model, except that instead of predicting the choice of hospital, we directly predicted 30-day readmission. We also included a set of 20 indicator variables for the hospital attended. We also calibrated this model based on the inverse of the proportion of those readmitted.
-
-We also fit a regularized logistic regression model for \(Q\), using cyclical coordinate descent to estimate the parameters efficiently in our sparse but large information matrix. We penalized the likelihood by the \(\ell_2\) norm, that is, the sum of the squares of the normalized regression parameters. The scale of the penalty was determined by the parameter λ. We optimized the selection of the penalty scale for the best partial likelihood using a nested a 10-fold cross-validation. Within each fold we assessed 100 λ-values spaced evenly between max(λ)×10-4 and max(λ), where max(λ) was the smallest λ-value that would result in a model with no non-zero coefficients.
+% How far out were the trees grown?
+For both $Q$ and $g$, we arbitrarily chose to grow 1200 trees, and then measured the accuracy as a function of the number of trees to ensure that growing further trees would be unlikely to significantly improve accuracy. Because the model was used solely to estimate the \emph{probability} of admission to to specific hospitals (and not to predict exactly which hospital was attended), we configured the model to favour calibration over discrimination: we weighted each of the twenty predicted hospitals by the inverse of the proportion of discharges at that hospital. When measuring the accuracy for each discharge, we only used trees for which the discharge was "out-of-bag", that is, we only used trees for which the bootstrap sample did not include the discharge.
 
 \subsubsection{Variable importance}
-% What is the ref for the Gini coefficient?
-For each tree, we calculated the decrease in Gini homogeneity when comparing the split nodes of the tree to the root. 
-The Gini impurity at any node is, for all out-of-bag discharges.
+To describe importance of the covariates in both models g and Q, for each variable, we measured the decrease in the Gini coefficient for each partition in which the variable was used, in every tree. A low Gini (i.e. higher decrease in Gini) means that a particular predictor variable plays a greater role in partitioning the data into the defined classes. We plotted the densities of variables with four different classes (census tract, procedure, diagnosis and drug) at different levels of Gini decreases.
 
-% To calculate the Gini impurity..
-For each hospital, the proportion of patients that chose this hospital $p_h$, multiplied by the probability of guessing that this patient would choose this hospital based on the distribution of patients $1-p_h$. Summed over all hospitals, this is the Gini impurity. Gini impurity is 1 when all patients chose the same hospital.
-
-Gini is defined as "inequity" when used in describing a society's distribution of income, or a measure of "node impurity" in tree-based classification. A low Gini (i.e. higher decrease in Gini) means that a particular predictor variable plays a greater role in partitioning the data into the defined classes. 
-
-
-\subsubsection{Model Q* - updated targeted maximum likelihood estimation}
-To combine our both our models G and Q, we fit twenty (one for each hospital) one-parameter logistic regression models called Q*. Q* was fit as a logistic regression with no intercept; we regressed readmission on to the inverse probability of exposure to that hospital, offset by the Q's prediction of readmission. We then used Q* to calculate the marginal probability of exposure for each hospital.
+\subsubsection{Calibration}
+Random forest traditionally classifies each item by majority vote; we converted this into a probability by taking the proportion of votes for each hospital (using only out-of-bag trees for each discharge).
 
 % We updated for Q*
 To avoid convergence problems for this one parameter model, we fit the parameter using a quasi-Newton method simultaneously discovered by Broyden\supercite{broyden_convergence_1970}, Fletcher\supercite{fletcher_new_1970}, Goldfarb\supercite{goldfarb_family_1970} and Shanno\supercite{shanno_conditioning_1970} (BFGS).
 
+\subsubsection{Model Q* - updated targeted maximum likelihood estimation}
+To combine our both our models G and Q, we fit twenty (one for each hospital) one-parameter logistic regression models called Q*. Q* was fit as a logistic regression with no intercept; we regressed readmission on to the inverse probability of exposure to that hospital, offset by the Q's prediction of readmission. We then used Q* to calculate the marginal probability of exposure for each hospital.
+
+
 \subsection{Time-to-event analysis}
 % As described in Stitleman.
-We also modeled the time-to-readmission as a function of the hospital the patient receieved care at. Thirty days is an arbitrary cutoff, time-to-event allows us to differentiate between more nuanced differences in readmission times.
+We also estimated the effect of the twenty hospitals on the time-to-readmission. In general, we followed the method for (non-collaborative) TMLE for survival analysis outlined in Stitleman, with some deviation. 
 
-In general, we followed the method for (non-collaborative) TMLE for survival analysis outlined in Stitleman, with a few deviations. The survival analysis required a model of the exposure as a function of the covariates; we resued the random forest model for $g$ as outlined above.
+The steps for TMLE in survival analysis are: 1) Estimate $g$ the probability of exposure (attending each hospital) 2) Estimate $g_2$ the probability of right censorship 3) Estimate $S0$ the survival function for each person for each level of exposure. 4) Combine $g$, $g_2$ and $S_0$ into a "clever covariate" which is then fit in a single-parameter (no intercept) model against a binary, time-varying outcome, offset by the conditional failure probability (as derived from S_0).
 
-In addition, we needed to develop models that estimated the survival function of both readmission (model $Q$), and right-censoring (model $g_2$). (The survival function $S(t)$ is the probability that a random person selected from the cohort has a probability of readmission [censoring] is greater than $t$.) A person was considered right-censored if they died, had a non-emergency readmission, they changed residence to a location outside of Quebec, or the study ended. 
-
-We estimated both survival functions in two steps, we first fit a Cox proportional hazards model, and then used that model to estimate a baseline survival function.  We fit a regularized Cox proportional hazards model for both \(Q\) and \(g_2\), using cyclical coordinate descent to estimate the parameters efficiently in our sparse but large information matrix. We penalized the likelihood by the \(\ell_2\) norm, also known as the lasso penalty. The scale of the penalty was determined by the parameter λ. We optimized the selection of the penalty scale for the best partial likelihood using a nested a 10-fold cross-validation. Within each fold we assessed 100 λ-values spaced evenly between max(λ)×10-4 and max(λ), where max(λ) was the smallest λ-value that would result in a model with no non-zero coefficients.
-
-We then estimated the baseline survival function using the technique described in Fleming and Harrington. We combined the baseline survival function with the individual-level covariates to get the covariate-level specific survival function for each individual. We calculated the twenty readmission survival curves for each person, one for each hospital. We also calculated twenty censoring survival curves.
+The estimate $g$, we reused the random forest model that we developed for the 30-day radmission risk analysis. In addition, we needed to develop models that estimated the survival function of both readmission (model $Q$), and right-censoring (model $g_2$). We estimated both survival functions in two steps, we first fit a Cox proportional hazards model, and then used that model to estimate a baseline survival function using the technique described by Fleming and Harrington \supercite{}. Stitleman described a technique in which a binary outcome would be fit to every unit of person-time. Although this model would be more flexible, it would be computationally very onerous because not only did we have thousands of covariates and tens of thousands of people in each disease cohort, they each were in the cohort for hundreds of days, leading to an information matrix with hundreds of millions of elements.
 % Fleming, T. H. and Harrington, D. P. (1984). Nonparametric estimation of the survival distribution in censored data. Comm. in Statistics 13, 2469-86. 
+
+For both \(Q\) and \(g_2\), we fit a regularized Cox proportional hazards model, using cyclical coordinate descent to estimate the parameters efficiently in our sparse but large information matrix. We penalized the likelihood by the \(\ell_2\) norm, also known as the lasso penalty. The scale of the penalty was determined by the parameter λ. We optimized the selection of the penalty scale for the best partial likelihood using a nested a 10-fold cross-validation. Within each fold we assessed 100 λ-values spaced evenly between max(λ)×10-4 and max(λ), where max(λ) was the smallest λ-value that would result in a model with no non-zero coefficients.
 
 For each hospital, for each person-day, we computed the "clever covariate", which is a function of the readmission survival function, the censoring survival function, and the probability of hospital exposure. Using logistic regression (without an intercept term), we regressed the binary readmission status offset by the inverse logit of the conditional failure probability, at every unit of person-time, on to the clever covariate, yielding a single parameter epsilon. We then iterated the procedure: we repeated the same logistic regression, except that we offset the binary readmission status by the inverse logit of the conditional failure probability plus the epsilon in the previous iteration. We iterated until the epsilon was less than $1^-10$.
 
+\begin{equation}
+\label{survival_clever_covariate} 
+h(t,A,W)=\frac{I(A=a)}{g(A=a|W)\prod_{i=1}^t1-g_2(i|A,W)}\frac{S_0(t_k|A,W)}{S_0(t|A,W)}
+\end{equation}
+
 Using the sum of the epsilons for all iterations for each hospital, we could then compute an "updated" survival function for each person for each hospital, which allowed us to estimate the expected time-to-readmission for each person as if they were cared for at each separate hospital. We compared the distribution of marginal survival times, as well as the marginal mean and median survival times.
+
+% (The survival function $S(t)$ is the probability that a random person selected from the cohort has a probability of readmission [censoring] is greater than $t$.) A person was considered right-censored if they died, had a non-emergency readmission, they changed residence to a location outside of Quebec, or the study ended. 
+
+%We also modeled the time-to-readmission as a function of the hospital the patient receieved care at. Thirty days is an arbitrary cutoff, time-to-event allows us to differentiate between more nuanced differences in readmission times.
+
+%We then estimated the baseline survival function using the technique described in Fleming and Harrington. We combined the baseline survival function with the individual-level covariates to get the covariate-level specific survival function for each individual. We calculated the twenty readmission survival curves for each person, one for each hospital. We also calculated twenty censoring survival curves.
+% Fleming, T. H. and Harrington, D. P. (1984). Nonparametric estimation of the survival distribution in censored data. Comm. in Statistics 13, 2469-86. 
+
+%\subsubsection{Model $g$ - probability of exposure}
+% We built a model G
+%Using random forest, we developed a multinomial model $g$ that predicted the probability of attending each of the twenty hospitals (a propensity score) as a function of all the measured confounders. 
+
+
+%For the  \(Q\) model, we developed another random forest model, very similar to the \(g\) model, except that instead of predicting the choice of hospital, we directly predicted 30-day readmission. We also included a set of 20 indicator variables for the hospital attended. We also calibrated this model based on the inverse of the proportion of those readmitted.
+
+% How the Gini coefficient works.
+% Make it clear that you didn't invent this.
+% To assess the importance of the variables in predicting which hospital a patient will choose, for each tree, we calculate the increase in homogeneity of classes between the root of the tree and the leaves. To measure the homogeneity of classes, we repurpose a metric that is typically used to measure equality (homogeneity) of income, the Gini coefficient \supercite{gini_variabilita_1912}. The homogeneity is defined as the sum of squared proportions in each class (hospital), with a maximum of 1 (all discharges at the same hospital) and a minimum of 1/20 (the discharges were evenly divided between the 20 hospitals). If the patients within the leaves of the tree made relatively homogeneous hospital choices, this variable predicts hospital choice well.
+
+% We calibrated it based on the weights of the hospital. It was multinomial in that we predicted 20 hospitals. We measured the calibration, similarly only using out-of-bag discharges. We investigated the top 10 varibales most important variables, as measured by the Gini coefficient. 
+ 
+%\subsubsection{\(Q\) model - probability of outcome}
+% We built a model Q
+% We built another random forest model, very similar to the model for G, except that instead of predicting the choice of hospital, we predicted 30-day readmission. We also included a set of 19 indicator variables (or was it twenty?) for the hospital. This was also calibrated based on the inverse of the proportion of those readmitted.
+
+%We also fit a regularized Cox proportional hazards model for \(Q\), using cyclical coordinate descent to estimate the parameters efficiently in our sparse but large information matrix. We penalized the likelihood by the \(\ell_2\) norm, that is, the sum of the squares of the normalized regression parameters. The scale of the penalty was determined by the parameter λ. We optimized the selection of the penalty scale for the best partial likelihood using a nested a 10-fold cross-validation. Within each fold we assessed 100 λ-values spaced evenly between max(λ)×10-4 and max(λ), where max(λ) was the smallest λ-value that would result in a model with no non-zero coefficients.
+
+%For each tree, we calculated the decrease in Gini homogeneity when comparing the split nodes of the tree to the root. 
+%The Gini impurity at any node is, for all out-of-bag discharges.
+
+% To calculate the Gini impurity..
+%For each hospital, the proportion of patients that chose this hospital $p_h$, multiplied by the probability of guessing that this patient would choose this hospital based on the distribution of patients $1-p_h$. Summed over all hospitals, this is the Gini impurity. Gini impurity is 1 when all patients chose the same hospital.
+
+%Gini is defined as "inequity" when used in describing a society's distribution of income, or a measure of "node impurity" in tree-based classification. A low Gini (i.e. higher decrease in Gini) means that a particular predictor variable plays a greater role in partitioning the data into the defined classes. 
+
+
+\subsection{Comparison to assessment with comorbidity scores}
+Finally, we compared our results of our analysis with 1) a logistic regression for 30-day readmission and 2) a Cox proportional hazards model for the time-to-readmission. In these models, we included only the age, sex, number of previous admissions, and the Charlson comoribidity score (Elixhauser version), along with indicator variables representing the hospitals themselves.
 
 \subsection{Software}
 The data were cleaned and prepared for statistical analysis using the Postgres relational database (version \Sexpr{system("psql --version | rev | cut -d' ' -f 1 | rev", intern=TRUE)}). We implemented our models using the R statistical package (version \Sexpr{getRversion()}) \supercite{team_r:_2014}. We implemented the random forest using the "bigrf" package (version \Sexpr{packageVersion('bigrf')}) \supercite{lim_bigrf:_2014}. We implemented the GLM fitting using coordinate descent using the "glmnet" package (version \Sexpr{packageVersion('glmnet')}) \supercite{friedman_regularization_2010}. We plotted our figures using the "ggplot2" package (version \Sexpr{packageVersion('ggplot2')}) \supercite{wickham_ggplot2:_2009}. All the code to develop used to fit clean our data, fit our models, and layout this paper is \href{https://github.com/nograpes/tmle_readmissions}{available for download at Github}.
@@ -250,7 +267,20 @@ People ever admitted for pneumonia had a mean of x and median x2 pneumonia admis
     \label{fig:variable_importance_by_model_and_class}
 \end{figure}
 
-% How does the glmnet model compare accuracy to the random forest model?
+
+% How important are the different variables for each model by class?
+
+\begin{figure}[H]
+    \centerline{
+      \includegraphics{../figures/tte_distribution.png}
+    }
+    \caption[Marginal days-to-readmission.]
+      {Marginal days-to-readmission.}
+    \label{fig:marginal_days_to_readmission}
+\end{figure}
+
+
+
 % What are the most important variables?
 
 % Some tables.
