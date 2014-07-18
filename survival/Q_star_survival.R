@@ -6,7 +6,7 @@ options(mc.cores=12)
 
 arguments <- commandArgs(trailingOnly=TRUE)
 # For testing purposes.
-if (interactive()) arguments<-c('data_dump/disease_heart_failure.object', 'data_dump/rf_G_model_heart_failure.object', 'survival/data_dump/glmnet_g_censor_heart_failure.object', 'survival/data_dump/glmnet_Q_heart_failure.object', 'survival/Q_star_survival.R', 'survival/data_dump/Q_star_heart_failure.object')
+if (interactive()) arguments<-c('data_dump/disease_heart_failure.object', 'data_dump/rf_G_model_heart_failure.object', 'survival/data_dump/glmnet_g_censor_heart_failure.object', 'survival/data_dump/glmnet_Q_heart_failure.object', 'survival/Q_star_survival.R', 'survival/data_dump/Q_star_survival_heart_failure.object')
 
 object.file <- arguments[1]
 rf.G.object <- arguments[2]

@@ -5,12 +5,10 @@ suppressPackageStartupMessages(library(doParallel))
 suppressPackageStartupMessages(library(gam))
 registerDoParallel(cores=12) # Register a parallel backend -- prediction is slow.
 
-
-# Read this in programatically.
+setwd('~/repo/thesis/code/tmle')
 prefixes<-c('ami','heart_failure','pneumonia')
 pretty.names<-c('Acute myocardial infarction','Heart failure','Pneumonia')
 names(pretty.names)<-prefixes
-setwd('~/repo/thesis/code/tmle')
 
 get.data<-function(prefix) {
   dump.dir<-'data_dump'
@@ -412,10 +410,10 @@ dump.base.stats<-function(disease) {
   mean.survived.los <- dash.NAs(aggregate(los~hosp,disease.df,mean))[,'los']
   mean.died.los <- dash.NAs(aggregate(los~hosp,died.during.stay,mean))[,'los']
   mean.both.los <- dash.NAs(aggregate(los~hosp,
-                             rbind(disease.df[c('hosp','los')], 
-                                   died.during.stay[c('hosp','los')]),
-                             mean)) [,'los']
-
+                                      rbind(disease.df[c('hosp','los')], 
+                                            died.during.stay[c('hosp','los')]),
+                                      mean)) [,'los']
+  
   data.frame(admitted=n+n.died, died=n.died, died.prop=n.died/(n+n.died), live.discharge=n, 
              overall.los=mean.both.los,died.los=mean.died.los,survived.los=mean.survived.los,             
              readmitted=crude.readmitted.n, prop=crude.props)
