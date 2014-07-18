@@ -4,30 +4,17 @@ suppressPackageStartupMessages(library(doParallel))
 registerDoParallel(cores=12) # Register a parallel backend -- prediction is slow.
 options(mc.cores=12)
 
-# /usr/bin/R ./build_rf_Q_star_model.R --args data_dump/rf_G_model_heart_failure.object data_dump/rf_Q_model_heart_failure.object data_dump/glmnet_Q_model_heart_failure.object data_dump/rf_G_calibrated_model_heart_failure.object data_dump/rf_Q_calibrated_model_heart_failure.object data_dump/disease_heart_failure.object  data_dump/build_rf_Q_star_model.R data_dump/rf_Q_star_model_heart_failure.object  ./matrix_cache
-
-# arguments <- c('data_dump/rf_G_model_pneumonia.object','data_dump/rf_Q_model_pneumonia.object','data_dump/glmnet_Q_model_pneumonia.object','data_dump/rf_G_calibrated_model_pneumonia.object','data_dump/rf_Q_calibrated_model_pneumonia.object','data_dump/disease_pneumonia.object', 'build_rf_Q_star_model.R','data_dump/rf_Q_star_model_pneumonia.object','./matrix_cache')
-
-# arguments <- c('data_dump/rf_G_model_ami.object','data_dump/rf_Q_model_ami.object','data_dump/glmnet_Q_model_ami.object','data_dump/rf_G_calibrated_model_ami.object','data_dump/rf_Q_calibrated_model_ami.object','data_dump/disease_ami.object', 'build_rf_Q_star_model.R','data_dump/rf_Q_star_model_ami.object','./matrix_cache')
-
-# arguments <- c('data_dump/rf_G_model_heart_failure.object','data_dump/rf_Q_model_heart_failure.object','data_dump/glmnet_Q_model_heart_failure.object','data_dump/rf_G_calibrated_model_heart_failure.object','data_dump/rf_Q_calibrated_model_heart_failure.object','data_dump/disease_heart_failure.object', 'build_rf_Q_star_model.R','data_dump/rf_Q_star_model_heart_failure.object','./matrix_cache')
-
-# /usr/bin/R ./build_rf_Q_star_model.R  --args data_dump/rf_G_model_ami.object data_dump/rf_Q_model_ami.object data_dump/glmnet_Q_model_ami.object data_dump/rf_G_calibrated_model_ami.object data_dump/rf_Q_calibrated_model_ami.object data_dump/disease_ami.object data_dump/rf_Q_star_model_ami.object ./matrix_cache
-
 arguments<-commandArgs(trailingOnly=TRUE)
+if(interactive()) arguments<-c('data_dump/rf_G_calibrated_model_ami.object','data_dump/rf_Q_calibrated_model_ami.object','data_dump/disease_ami.object','build_rf_Q_star_model.R','data_dump/rf_Q_star_model_ami.object','./matrix_cache')
 
-# G.model.file <- arguments[1]
-# rf.Q.model.file <- arguments[2]
-glmnet.Q.model.file <- arguments[3]
-calibrated.G.model.file <- arguments[4]
-calibrated.rf.Q.model.file <- arguments[5]
-object.file  <- arguments[6]
-R.file  <- arguments[7] # Ugly hack -- I can't get the Makefile to work without passing the R file as a param.
-output.file  <- arguments[8]
-matrix.cache <- arguments[9]
+calibrated.G.model.file <- arguments[1]
+calibrated.rf.Q.model.file <- arguments[2]
+object.file  <- arguments[3]
+R.file  <- arguments[4] # Ugly hack -- I can't get the Makefile to work without passing the R file as a param.
+output.file  <- arguments[5]
+matrix.cache <- arguments[6]
 
 load(object.file)
-load(glmnet.Q.model.file) # glmnet.predict.outcome
 load(calibrated.G.model.file)
 load(calibrated.rf.Q.model.file)
 
@@ -79,25 +66,11 @@ fixed.hosp.data <- function(hosp) {
 rf.prob.by.hosp <- function(rf.model, hosp, oob.only=TRUE)
   rf.probs(rf.model=rf.model, data=fixed.hosp.data(hosp), oob.only=oob.only)
 
-glmnet.prob.by.hosp <- function(hosp) {
-  set.to.hosp<-disease.big.matrix
-  set.to.hosp[,grep('^hosp',colnames(disease.big.matrix))]<-0
-  var.name<-paste0('hosp',hosp)
-  # Because one hospital was left one -- just by tradition for interpretation.
-  if(var.name %in% colnames(set.to.hosp)) set.to.hosp[,var.name]<-1
-  c(plogis(predict(glmnet.predict.outcome, 
-                   newx=set.to.hosp, 
-              		    s=glmnet.predict.outcome$lambda.1se)))  
-}
-
-
 # G model - calibrated RF 
 g.votes <- rf.predict.exposure@oobvotes
 g.by.rf.unscaled <- g.votes / rowSums(g.votes)
 
 # Important to scale each column of g
-colnames(g.by.rf.unscaled)
-
 one.v.all = sapply(colnames(g.by.rf.unscaled), function(x) disease.df$hosp == x)
 
 g.by.rf <- mapply(function(y,x) predict(glm(y~x, family=binomial),
@@ -118,7 +91,6 @@ Q.as.observed.by.rf <-  predict(platt.scaler, type='response')
 
 # Q model - calibrated RF - manipulating exposure to each of twenty levels.
 # (A=1, A=2..,A=20)
-
 unscaled.all.rf.Q.by.hosp<-sapply(levels(disease.df$hosp),
                                   function(x,rf.model) 
                                     rf.prob.by.hosp(rf.model,x)[,"TRUE"],
@@ -128,16 +100,6 @@ all.rf.Q.by.hosp <- apply(unscaled.all.rf.Q.by.hosp,2,
                            function(x) predict(platt.scaler,
                                                newdata=data.frame(prob=x),
                                                type='response'))
-
-# Q model - glmnet - as observed (A=a)
-glmnet.prob.of.outcome <-c(plogis(predict(glmnet.predict.outcome, 
-                                          newx=disease.big.matrix, 
-                                          s=glmnet.predict.outcome$lambda.1se)))  
-
-# Q model - glmnet - manipulating exposure to each of twenty levels
-# There is almost certainly a more clever way to do this:
-# Calculate for baseline, and then just add in.
-all.glmnet.Q.by.hosp <- sapply(levels(disease.df$hosp),glmnet.prob.by.hosp)
 
 # Create a matrix of indicator variables.
 ff<-~hosp-1
@@ -157,11 +119,10 @@ bump.zeroes <- function(x){
 modified.rf.prob.of.exposure <- bump.zeroes(g.by.rf)
 
 # Outcome
-modified.rf.prob.of.outcome <- bump.zeroes(rf.prob.of.outcome)
+# modified.rf.prob.of.outcome <- bump.zeroes(rf.prob.of.outcome)
 
 # I want to find one epsilon for each hospital.
 # Each column becomes (A==a)/g
-# iptw <- exposure.mat  / modified.rf.prob.of.exposure 
 iptw <- exposure.mat  / modified.rf.prob.of.exposure 
 
 # You don't have to run a model for each level, since all of the iptw vars are mutually exclusive (when one is nonzero, all rest are zero) putting them all in the same model is essentially the same thing.
@@ -173,12 +134,7 @@ iptw <- exposure.mat  / modified.rf.prob.of.exposure
 #                       family=binomial(link=logit))
 # 
 # 
-# glmnet.epsilon.model<-glm(Y ~ .-1, 
-#                       offset=qlogis(glmnet.prob.of.outcome), 
-#                       data=data.frame(Y=as.factor(disease.df$day_30_readmit),iptw),
-#                       family=binomial(link=logit))
 # rf.epsilons<-coef(rf.epsilon.model)
-# glmnet.epsilons<-coef(glmnet.epsilon.model)
 
 # Normally, I would use the standard GLM fitter for these data.
 # It appears that sometimes the fitter, which uses Iterative Reweighted Least Squares (IRLS)
@@ -208,28 +164,12 @@ epsilons<-function(offset, iptw) {
 # IPTW needs to change every time.
 
 # I have chosen to use only the calibrated IPTW, because it is more theoretically sound. (I really don't care about accuracy here.)
-# rf.epsilons <- epsilons(offset=modified.rf.prob.of.outcome, iptw=iptw)
-# glmnet.epsilons <- epsilons(offset=glmnet.prob.of.outcome, iptw=iptw)
 rf.epsilons <- mapply(epsilons, offset=data.frame(all.rf.Q.by.hosp) ,iptw=data.frame(iptw))
-
-glmnet.epsilons <- mapply(epsilons, offset=data.frame(all.glmnet.Q.by.hosp) ,iptw=data.frame(iptw))
 
 Q.star<-function(Q, ptw, epsilons)
 				plogis(qlogis(Q) + ((ptw) %*% t(epsilons)))
 
-			
 rf.Q.star <- mapply(Q.star, Q=data.frame(all.rf.Q.by.hosp), ptw=data.frame(modified.rf.prob.of.exposure), epsilons=rf.epsilons)	
 
-# rf.Q.star <- Q.star(all.rf.Q.by.hosp, 
-#                     iptw=iptw, 
-# 	 				  rf.epsilons)
-
-# glmnet.Q.star <- Q.star(all.glmnet.Q.by.hosp, 
-#                         iptw=iptw, 
-#                         glmnet.epsilons)
-
-save(rf.Q.star, glmnet.Q.star,
-     rf.epsilons, glmnet.epsilons,
-     all.rf.Q.by.hosp, all.glmnet.Q.by.hosp,
-  	 file=output.file)
+save(rf.Q.star, rf.epsilons, all.rf.Q.by.hosp, file=output.file)
 
