@@ -5,7 +5,7 @@ registerDoParallel(cores=12) # Register a parallel backend -- prediction is slow
 options(mc.cores=12)
 
 arguments<-commandArgs(trailingOnly=TRUE)
-if(interactive()) arguments<-c('data_dump/rf_G_calibrated_model_ami.object','data_dump/rf_Q_calibrated_model_ami.object','data_dump/disease_ami.object','build_rf_Q_star_model.R','data_dump/rf_Q_star_model_ami.object','./matrix_cache')
+if(interactive()) arguments<-c('data_dump/rf_G_calibrated_model_heart_failure.object','data_dump/rf_Q_calibrated_model_heart_failure.object','data_dump/disease_heart_failure.object','build_rf_Q_star_model.R','data_dump/rf_Q_star_model_heart_failure.object','./matrix_cache')
 
 calibrated.G.model.file <- arguments[1]
 calibrated.rf.Q.model.file <- arguments[2]
@@ -73,8 +73,10 @@ g.by.rf.unscaled <- g.votes / rowSums(g.votes)
 # Important to scale each column of g
 one.v.all = sapply(colnames(g.by.rf.unscaled), function(x) disease.df$hosp == x)
 
-g.by.rf <- mapply(function(y,x) predict(glm(y~x, family=binomial),
-                                type='response'),  
+# I suppress warnings here because sometimes the model predict values
+# numerically equivalent to 1 or 0, which R complains about.
+g.by.rf <- mapply(function(y,x) suppressWarnings(predict(glm(y~x, family=binomial),
+                                type='response')),  
                   data.frame(one.v.all, check.names=FALSE), 
                   data.frame(g.by.rf.unscaled))
 
