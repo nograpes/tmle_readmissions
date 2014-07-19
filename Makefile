@@ -9,6 +9,8 @@ MATRIX_CACHE_DIR=${CUR_DIR}/matrix_cache
 SURVIVAL_DIR=${CUR_DIR}/survival
 SURVIVAL_DATA_DUMP_DIR=${SURVIVAL_DIR}/data_dump
 
+TABLES_DIR=${CUR_DIR}/tables
+
 RSCRIPT=/usr/bin/Rscript --vanilla
 DISEASES=$(wildcard $(DISEASE_SUBSET_DIR)/*)
 DISEASES_NO_PATH=$(subst $(DISEASE_SUBSET_DIR)/,,$(DISEASES))
@@ -20,6 +22,9 @@ DISEASES_NO_PATH=$(subst $(DISEASE_SUBSET_DIR)/,,$(DISEASES))
 .SECONDARY:
 
 all: $(DISEASES_NO_PATH:%=${DATA_DUMP_DIR}/rf_Q_star_model_%.object)
+
+${TABLES_DIR}/disease.results.table.object : $(DISEASES_NO_PATH:%=${DATA_DUMP_DIR}/rf_Q_star_model_%.object)	 $(DISEASES_NO_PATH:%=${DATA_DUMP_DIR}/disease_%.object)	    $(DISEASES_NO_PATH:%=${DATA_DUMP_DIR}/crude_readmissions_risk_%.object)	
+	${RSCRIPT} ${CUR_DIR}/disease_tables.R $@
 
 ${DATA_DUMP_DIR}/rf_Q_star_model_%.object :  ${DATA_DUMP_DIR}/rf_G_calibrated_model_%.object ${DATA_DUMP_DIR}/rf_Q_calibrated_model_%.object ${DATA_DUMP_DIR}/disease_%.object ${CUR_DIR}/build_rf_Q_star_model.R
 	${RSCRIPT} ${CUR_DIR}/build_rf_Q_star_model.R $^ $@ ${MATRIX_CACHE_DIR}

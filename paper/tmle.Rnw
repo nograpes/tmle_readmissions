@@ -289,99 +289,61 @@ People ever admitted for pneumonia had a mean of x and median x2 pneumonia admis
 \setmainfont[Scale=1]{Cambria}
 \linespread{1}
 
-<<ami, cache=FALSE, echo=FALSE, results='asis'>>=
+<<disease_tables, cache=FALSE, echo=FALSE, results='asis'>>=
 suppressPackageStartupMessages(library(Hmisc))
 load(file='~/repo/thesis/code/tmle/tables/disease.results.table.object') # disease.results.table
-table<-disease.results.table[['ami']]
 
-table$overall.los<-round(table$overall.los)
-table$died.los<-round(table$died.los)
-table$survived.los<-round(table$survived.los)
+diseases <- c('ami','heart_failure','pneumonia')
+pretty_names <- c(ami='Acute myocardial infarction (AMI)', heart_failure='Heart failure', pneumonia='Pneumonia')
 
-colnames(table)<-c(admitted='Admitted',
-                   died='Died',
-                   died.prop='(\\%)',
-                   live.discharge='Discharged',
-                   overall.los='Admitted',
-                   died.los='Died',
-                   survived.los='Discharged',
-                   readmitted='Readmitted',
-                   prop='(\\%)',
-                   Q='Q',
-                   epsilon='ε',
-                   Q.star='Q*') [colnames(table)]
-rownames(table)<-NULL
+ci.format <- function(x){
+  baseline <- which(apply(x,1,function(x) all(is.na(x))))
+  x=lapply(x,function(y) sprintf('%.2f',round(y,2)))
+  l <- do.call(paste0,list(x[[1]],' (',x[[2]],'-',x[[3]],')'))
+  l[[baseline]]<-'(Reference)'
+  l
+}
 
-
-latex(round(table,2),file='',
-      cgroup=c("","Length of stay (mean days)","","Random Forest","GLMnet"), n.cgroup=c(4,3,2,3,3),
-      rowlabel="Hospital",
-      caption.loc="bottom",
-      caption="Acute myocardial infarction (AMI).")
-
-@
-
-<<heart_failure, cache=FALSE, echo=FALSE, results='asis'>>=
-suppressPackageStartupMessages(library(Hmisc))
-load(file='~/repo/thesis/code/tmle/tables/disease.results.table.object') # disease.results.table
-table<-disease.results.table[['heart_failure']]
-
-table$overall.los<-round(table$overall.los)
-table$died.los<-round(table$died.los)
-table$survived.los<-round(table$survived.los)
-
-colnames(table)<-c(admitted='Admitted',
-                   died='Died',
-                   died.prop='(\\%)',
-                   live.discharge='Discharged',
-                   overall.los='Admitted',
-                   died.los='Died',
-                   survived.los='Discharged',
-                   readmitted='Readmitted',
-                   prop='(\\%)',
-                   Q='Q',
-                   epsilon='ε',
-                   Q.star='Q*') [colnames(table)]
-rownames(table)<-NULL
+for (disease in diseases){
+  table<-disease.results.table[[disease]]
+  odds <- ci.format(table[c('odds.ratio','odds.ratio.ci.low','odds.ratio.ci.high')])
+  hazards <- ci.format(table[c('hazard.ratio','hazard.ratio.ci.low','hazard.ratio.ci.high')])
+  
+  tte <- do.call(paste0, list(round(table$mean.tte),' (',round(table$median.tte),')'))
+  
+  pre.format <- cbind(table[c('admitted','died','died.prop','live.discharge','readmitted','prop')],odds=odds,Q.star=table$Q.star,hazards=hazards,tte=tte)
+  
+  num.cols <- sapply(pre.format,is.numeric)
+  pre.format[num.cols] <- round(pre.format[num.cols],2)
 
 
-latex(round(table,2),file='',
-      cgroup=c("","Length of stay (mean days)","","Random Forest","GLMnet"), n.cgroup=c(4,3,2,3,3),
-      rowlabel="Hospital",
-      caption.loc="bottom",
-      caption="Heart failure")
+  
+  colnames(pre.format)<-c(admitted='Admitted',
+                          died='Died',
+                          died.prop='(\\%)',
+                          live.discharge='Discharged',
+#                      overall.los='Admitted',
+#                      died.los='Died',
+#                      survived.los='Discharged',
+                         readmitted='Readmitted',
+                         prop='(\\%)',
+                         odds='Odds Ratio\n(95\\% CI)',
+                         hazards='Hazard Ratio\n(95\\% CI)',
+#                      Q='Q',
+#                      epsilon='ε',
+                         Q.star='Marginal risk',
+                         tte='Marginal mean TTE\n(median)'
+                        ) [colnames(pre.format)]
+  rownames(pre.format) <- NULL
 
-@
-
-<<pneumonia, cache=FALSE, echo=FALSE, results='asis'>>=
-suppressPackageStartupMessages(library(Hmisc))
-load(file='~/repo/thesis/code/tmle/tables/disease.results.table.object') # disease.results.table
-table<-disease.results.table[['pneumonia']]
-
-table$overall.los<-round(table$overall.los)
-table$died.los<-round(table$died.los)
-table$survived.los<-round(table$survived.los)
-
-colnames(table)<-c(admitted='Admitted',
-                   died='Died',
-                   died.prop='(\\%)',
-                   live.discharge='Discharged',
-                   overall.los='Admitted',
-                   died.los='Died',
-                   survived.los='Discharged',
-                   readmitted='Readmitted',
-                   prop='(\\%)',
-                   Q='Q',
-                   epsilon='ε',
-                   Q.star='Q*') [colnames(table)]
-rownames(table)<-NULL
-
-
-latex(round(table,2),file='',
-      cgroup=c("","Length of stay (mean days)","","Random Forest","GLMnet"), n.cgroup=c(4,3,2,3,3),
-      rowlabel="Hospital",
-      caption.loc="bottom",
-      caption="Pneumonia")
+  latex(pre.format, file='',
+        col.just = rep('r',10),
+        cgroup = c("", "30-day readmission", "Time-to-readmission"), 
+        n.cgroup = c(6,2,2),
+        rowlabel = "Hospital",
+        caption.loc = "bottom",
+        caption = pretty_names[disease])
+}
 @
 
 \setmainfont[Scale=1.25]{Cambria}

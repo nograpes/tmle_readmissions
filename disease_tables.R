@@ -1,15 +1,12 @@
-suppressPackageStartupMessages(library(bigrf))
-suppressPackageStartupMessages(library(reshape2))
-suppressPackageStartupMessages(library(ggplot2))
-suppressPackageStartupMessages(library(doParallel))
-suppressPackageStartupMessages(library(gam))
-registerDoParallel(cores=12) # Register a parallel backend -- prediction is slow.
+arguments<-commandArgs(trailingOnly=TRUE)
+if(interactive()) arguments<-'tables/disease.results.table.object'
+output.file<-arguments[1]
 
-# Read this in programatically.
-prefixes<-c('ami','heart_failure','pneumonia')
+prefixes<-list.files('disease_subsets')
+
 pretty.names<-c('Acute myocardial infarction','Heart failure','Pneumonia')
 names(pretty.names)<-prefixes
-setwd('~/repo/thesis/code/tmle')
+
 get.data<-function(prefix) {
   dump.dir<-'data_dump'
   data.files<-c('rf_Q_star_model_', 'disease_','crude_readmissions_risk_')
@@ -81,4 +78,4 @@ disease.table<-function(disease, models='rf') {
 }
 
 disease.results.table<-sapply(prefixes, disease.table, simplify=FALSE)
-save(disease.results.table,file='tables/disease.results.table.object')
+save(disease.results.table,file=output.file)
