@@ -77,6 +77,7 @@
 \addbibresource{tmle.bib} % Critical that you put .bib in here!
 \IfFileExists{upquote.sty}{\usepackage{upquote}}{}
 \begin{document}
+%\SweaveOpts{concordance=TRUE}
 \title{Hospital readmissions and targeted maximum likelihood estimation}
 \author{Aman Verma}
 \date{\today}
@@ -138,13 +139,12 @@ earliest possible hospital discharge was January 2, 1997.
 % Disease types
 From among the identified hospital discharges, we selected only those with one of three high-volume admission diagnoses with high rates of hospital readmissions: pneumonia, acute myocardial infarction (AMI), and heart failure, the three initial conditions selected by the Centers for Medicare and Medicaid Services (CMS) to implement the Hospital Readmissions Reduction Program mandated by the Affordable Care Act. We identified each of the admission diagnoses using ICD-9 codes; for pneumonia we used codes ranging from 480-487, for heart failure we used all 428 codes, and for AMI we used all 410 codes. The following methods were applied individually to all three disease subsets. 
 
-\subsubsection{Hospital readmissions}
+\subsection{Hospital readmissions}
 The unit of analysis was the hospital discharge; a person could be discharged multiple times. A hospital readmission was defined as an emergency hospital admission to any Quebec hospital in the 30 days following a discharge.  A person who died or had a non-emergency readmission in the 30 days following discharge was considered not readmitted. For the purposes of the survival analysis, "time zero" was the day of discharge; a person was considered right-censored if, before an emergency readmission, they died, had a non-emergency readmission, they changed residence to a location outside of Quebec, or the study ended. 
 
-% We had confounders.
 \subsection{Confounders and Risk Factors}
 % The basic demographics and time-related confounders.
-For each hospital discharge, we colllected variables that measured states at the time of admission, or events that occurred prior to the hospital admission, and which may confound the relationship between hospital care and readmission. We used the demographic characteristics (age at time of admission (years), sex, birth year-month), the number of previous readmissions (within the preceding year), the admission diagnosis (as measured by the specific ICD-9 code). We also included the day of week of discharge, which has been previously shown to have an association with readmissions\supercite{}, and the month of discharge, because we hypothesized that readmission risk would vary by seasons in Montreal.
+For each hospital discharge, we colllected variables that measured states at the time of admission, or events that occurred prior to the hospital admission, and which may confound the relationship between hospital care and readmission. We used the demographic characteristics (age at time of admission (years), sex, birth year-month), the number of previous readmissions (within the preceding year), the admission diagnosis (as measured by the specific ICD-9 code). We also included the day of week of discharge, which has been previously shown to have an association with readmissions\supercite{van_walraven_risk_2002}, and the month of discharge, because we hypothesized that readmission risk would vary by seasons in Montreal.
 
 % Procedures, drugs, and diagnoses.
 Additionally, for each discharge, we collected the Quebec hospital diagnoses, Quebec hospital procedures, and drugs dispensed outside of the hospital but inside Quebec, in the year preceding the admission. The hospital procedures were recorded in the Canadian Classification of Diagnostic, Therapeutic, and Surgical Procedures (CCP) system. Hospital diagnostic codes were coded using the ICD-9 system. Finally, drugs which were prescribed and dispensed outside the hospital, and were being taken on the day of admission were also recorded for each patient in the \emph{code commune} system, which categorizes drugs based on the chemical compound. To ease computation, before fitting any model, we removed any diagnosis, procedure or drug that occurred less than 30 times among all discharges. We chose 30 because it appeared to be a natural breakpoint; if the number of variables included is a function $f$ of the threshold, then the first derivative of $f$ dropped at 30 for all three disease categories.
@@ -152,35 +152,41 @@ Additionally, for each discharge, we collected the Quebec hospital diagnoses, Qu
 % Area of residence.
 We believed that residential location would strongly affect the probability of admission to the hospital nearest that census tract. We included it in our models because we also expected it to crudely approximate a (expected) confounder: socio-economic status.  We used the residential postal code at the time of admission to assign each patient in the cohort to a census tract, as defined by the 2006 Canadian census. (Census tracts contain between 2,500 and 8,000 people, and, at the time of their creation, are demarcated so as to maximize homogeneity of socioeconomic characteristics.)
 
-\section{Statistical Analyses}
-% \section{Modeling with targeted maximum likelihood estimation}
-To esimate the marginal risk of 30-day readmission for each of the twenty hospitals ($A_i$), we used targeted maximum likelihood estimation. The process consisted of three steps 1) estimation of a propensity score $g(W)$, 2) an initial estimate of a model of readmission risk based on all confounders $W_i$ and the variables for each of the hospitals $Q(A,W)$, 3) calculation $h(A,W)$ (sometimes referred to as the clever covariate) described in Equation \ref{logistic_clever_covariate}
+\subsection{Statistical Analyses}
+For each discharge $i$, we sought to estimate the effect of each of the twenty hospitals ($A_i$) on 30-day readmission ($Y_i$), accounting for the vector of confounders $W_i$. To estimate this risk, we used targeted maximum likelihood estimation, which consisted of four steps: 1) estimation of a propensity score $g(A_i|W_i)$, 2) an initial estimate of a model of readmission risk based on all confounders $W_i$ and the variables for each of the hospitals $Q(Y_i|A_i,W_i)$, 3) calculation $h(A,W_i)$ (sometimes referred to as the clever covariate) described in Equation \ref{logistic_clever_covariate}
 
 \begin{equation}
 \label{logistic_clever_covariate} 
-h(A,W)=\frac{I(A=a)}{g(A=a|W)}
+h(A,W_i)=\frac{I(A=a)}{g(A=a|W_i)}
 \end{equation}
 
-where $I$ is the indicator function which evaluates to 1 when its argument is true, and 0 otherwise, and 4) a final step in which we fit twenty models ($Q^*_i$), in which we regress the 30-day readmission outcome $Y_i$ onto $h(A_i,W)$ offset by the initial estimate of readmission risk $Q(A_i,W_i)$ as described in Equation \ref{logistic_fluctuation_function}.
+where $I$ is the indicator function which evaluates to 1 when its argument is true, and 0 otherwise, and 4) a final step in which we fit twenty models $Q^*_i$, in which we regress the 30-day readmission outcome $Y_i$ onto $h(A,W_i)$ offset by the initial estimate of readmission risk $Q(A_i,W_i)$ as described in Equation \ref{logistic_fluctuation_function}.
 
 \begin{equation}
 \label{logistic_fluctuation_function} 
-Q^*=expit(logit(Q) + \epsilon \times 1/g)
+Q^*=expit(logit(Q(Y_i|A,W_i)) + \epsilon \times h(A,W_i))
 \end{equation}
 
-% \subsection{Random forest}
-To estimate both models $g$ and $Q$, we used a random forest, a non-parametric model based on decision trees \supercite{breiman_random_2001}. Decision trees use the independent variables to repeatedly split data into partitions that are as homogenous as possible with respect to the outcome of interest (specifically measured with the Gini coefficient\supercite{gini_variabilita_1912}). Complex interactions and non-linearities are naturally modeled within this framework. Random forest improves decision trees by using bootstrap aggregation (bagging); multiple decision trees are grown on bootstrap replicates (sampled with replacement) to avoid overfitting. Additionally, within each tree, only a sample of the covariates is used (in our case we used a square root of the number of variables, rounded down, included in the model).
+We used this because...
 
-% How far out were the trees grown?
-For both $Q$ and $g$, we arbitrarily chose to grow 1200 trees, and then measured the accuracy as a function of the number of trees to ensure that growing further trees would be unlikely to significantly improve accuracy. Because the model was used solely to estimate the \emph{probability} of admission to to specific hospitals (and not to predict exactly which hospital was attended), we configured the model to favour calibration over discrimination: we weighted each of the twenty predicted hospitals by the inverse of the proportion of discharges at that hospital. When measuring the accuracy for each discharge, we only used trees for which the discharge was "out-of-bag", that is, we only used trees for which the bootstrap sample did not include the discharge.
+We ended up with a nice vector ...
 
-%\subsubsection{Variable importance}
-To describe importance of the covariates in both models $g$ and $Q$, for each variable, we measured the decrease in the Gini coefficient for each partition in which the variable was used, in every tree. A low Gini (i.e. higher decrease in Gini) means that a particular predictor variable plays a greater role in partitioning the data into the defined classes. We plotted the densities of variables with four different classes (census tract, procedure, diagnosis and drug) at different levels of Gini decreases.
+% Random forest
+% Still missing: How far out were the trees grown?
+To estimate both models $g(A_i|W_i)$ and $Q(Y_i|A,W_i)$, we used a random forest, a non-parametric model based on decision trees \supercite{breiman_random_2001}. Decision trees use the independent variables ($W_i$) to repeatedly split data into partitions that are as homogenous as possible with respect to the outcome of interest (specifically measured with the Gini coefficient\supercite{gini_variabilita_1912}). Complex interactions and non-linearities are naturally modeled within this framework. Random forest improves decision trees by using bootstrap aggregation (bagging); multiple decision trees are grown on bootstrap replicates (sampled with replacement) to avoid overfitting. Additionally, within each tree, only a sample of the covariates is used (in our case we used a square root of the number of variables, rounded down, included in the model).
 
-%\subsubsection{Calibration}
-Random forest traditionally classifies each item by majority vote; we converted this into a probability by taking the proportion of votes for each hospital (using only out-of-bag trees for each discharge).
+For both models $g(A_i|W_i)$ and $Q(Y_i|A,W_i)$, we arbitrarily chose to grow 1200 trees, and then measured the accuracy as a function of the number of trees to ensure that growing further trees would be unlikely to significantly improve accuracy. Because the model was used solely to estimate the \emph{probability} of admission to to specific hospitals (and not to predict exactly which hospital was attended), we configured the model to favour calibration over discrimination: we weighted each of the twenty predicted hospitals by the inverse of the proportion of discharges at that hospital. When measuring the accuracy for each discharge, we only used trees for which the discharge was "out-of-bag", that is, we only used trees for which the bootstrap sample did not include the discharge.
 
-To avoid convergence problems for this one parameter model, we fit the parameter using a quasi-Newton method simultaneously discovered by Broyden\supercite{broyden_convergence_1970}, Fletcher\supercite{fletcher_new_1970}, Goldfarb\supercite{goldfarb_family_1970} and Shanno\supercite{shanno_conditioning_1970} (BFGS).
+% Variable importance
+To describe importance of the covariates in both models $g(A_i|W_i)$ and $Q(Y_i|A,W_i)$, for each variable, we measured the decrease in the Gini coefficient for each partition in which the variable was used, in every tree. A low Gini (i.e. higher decrease in Gini) means that a particular predictor variable plays a greater role in partitioning the data into the defined classes. We plotted the densities of variables with four different classes (census tract, procedure, diagnosis and drug) at different levels of Gini decreases.
+
+% Calibration
+Random forest traditionally classifies each item by majority vote; we converted this into a probability by taking the proportion of votes for each hospital (using only out-of-bag trees for each discharge). Although the vote proportion is in the scale of zero to one, it is not calibrated well as a probability; to calibrate the vote proportion, we used Platt scaling(effectively logistic regression of the outcome ($Y_i$) onto the vote proportion). 
+
+% The Q* convergence problem.
+To avoid convergence problems when fitting $Q^*$, we fit the parameter using a quasi-Newton method simultaneously discovered by Broyden\supercite{broyden_convergence_1970}, Fletcher\supercite{fletcher_new_1970}, Goldfarb\supercite{goldfarb_family_1970} and Shanno\supercite{shanno_conditioning_1970} (BFGS).
+
+Despite having a likelihood function with a single maximum, the Newton-Raphson optimization technique did not converge for one of the sixty $Q^*$ models. We fit all $Q^*$ models using a quasi-Newton method simultaneously discovered by Broyden\supercite{broyden_convergence_1970}, Fletcher\supercite{fletcher_new_1970}, Goldfarb\supercite{goldfarb_family_1970} and Shanno\supercite{shanno_conditioning_1970} (BFGS).
 
 % We updated for Q*
 % \subsubsection{Model Q* - updated targeted maximum likelihood estimation}
@@ -188,82 +194,54 @@ To avoid convergence problems for this one parameter model, we fit the parameter
 
 \subsection{Time-to-event analysis}
 % As described in Stitleman.
-We also estimated the effect of the twenty hospitals on the time-to-readmission. In general, we followed the method for (non-collaborative) TMLE for survival analysis outlined in Stitleman, with some deviation. 
+We also estimated the effect of the twenty hospitals on the time-to-readmission. In general, we followed the method for (non-collaborative) TMLE for survival analysis outlined in Stitleman\supercite{stitelman_collaborative_2010}, with some deviation. 
 
-The steps for TMLE in survival analysis are: 1) Estimate $g$ the probability of exposure (attending each hospital) 2) Estimate $g_2$ the probability of right censorship 3) Estimate $S0$ the survival function for each person for each level of exposure. 4) Combine $g$, $g_2$ and $S_0$ into the clever covariate h(t,A,W) 
+The steps for TMLE in survival analysis are: 1) Estimate $g$ the probability of exposure (attending each hospital) 2) Estimate $g_2$ the probability of right censorship 3) Estimate $S_0$ the survival function for each person for each level of exposure. 4) Combine $g$, $g_2$ and $S_0$ into the clever covariate $h(t,A,W)$ 
 
 \begin{equation}
 \label{survival_clever_covariate} 
 h(t,A,W)=\frac{I(A=a)}{g(A=a|W)\prod_{i=1}^t1-g_2(i|A,W)}\frac{S_0(t_k|A,W)}{S_0(t|A,W)}
 \end{equation}
 
-which is then fit in a single-parameter (no intercept) model against a binary, time-varying outcome, offset by the conditional failure probability (as derived from S_0).
+which is then similarly fit as in the binary outcome version described above, except offset by the conditional failure probability (as derived from $S_0$) described Equation \ref{survival_fluctuation_function}.
 
-The estimate $g$, we reused the random forest model that we developed for the 30-day radmission risk analysis. In addition, we needed to develop models that estimated the survival function of both readmission (model $Q$), and right-censoring (model $g_2$). We estimated both survival functions in two steps, we first fit a Cox proportional hazards model, and then used that model to estimate a baseline survival function using the technique described by Fleming and Harrington \supercite{fleming_nonparametric_1984}. Stitleman described a technique in which a binary outcome would be fit to every unit of person-time. Although this model would be more flexible, it would be computationally very onerous because not only did we have thousands of covariates and tens of thousands of people in each disease cohort, they each were in the cohort for hundreds of days, leading to an information matrix with hundreds of millions of elements.
+\begin{equation}
+\label{survival_fluctuation_function} 
+Q^*=expit(logit(1-\frac{S_0(t|A,W_i)}{S_0(t-1|A,W_i)}) + \epsilon \times h(t,A,W_i))
+\end{equation}
 
-For both $Q$ and $g_2$, we fit a regularized Cox proportional hazards model, using cyclical coordinate descent to estimate the parameters efficiently in our sparse but large information matrix. We penalized the likelihood by the $\ell_2$ norm, also known as the lasso penalty. The scale of the penalty was determined by the parameter λ. We optimized the selection of the penalty scale for the best partial likelihood using a nested a 10-fold cross-validation. Within each fold we assessed 100 λ-values spaced evenly between max(λ)×10-4 and max(λ), where max(λ) was the smallest λ-value that would result in a model with no non-zero coefficients.
-
-For each hospital, for each person-day, we computed the "clever covariate", which is a function of the readmission survival function, the censoring survival function, and the probability of hospital exposure. Using logistic regression (without an intercept term), we regressed the binary readmission status offset by the inverse logit of the conditional failure probability, at every unit of person-time, on to the clever covariate, yielding a single parameter epsilon. We then iterated the procedure: we repeated the same logistic regression, except that we offset the binary readmission status by the inverse logit of the conditional failure probability plus the epsilon in the previous iteration. We iterated until the epsilon was less than $1^-10$.
+% We then iteratively refit epsilon ...
+We then iterated the procedure: we repeated the same logistic regression, except that we offset the binary readmission status by the inverse logit of the conditional failure probability plus the epsilon in the previous iteration. We iterated until the epsilon was less than $1^{-10}$.
 
 Using the sum of the epsilons for all iterations for each hospital, we could then compute an "updated" survival function for each person for each hospital, which allowed us to estimate the expected time-to-readmission for each person as if they were cared for at each separate hospital. We compared the distribution of marginal survival times, as well as the marginal mean and median survival times.
 
-% (The survival function $S(t)$ is the probability that a random person selected from the cohort has a probability of readmission [censoring] is greater than $t$.) A person was considered right-censored if they died, had a non-emergency readmission, they changed residence to a location outside of Quebec, or the study ended. 
+And this got us to what parameter ...
 
-%We also modeled the time-to-readmission as a function of the hospital the patient receieved care at. Thirty days is an arbitrary cutoff, time-to-event allows us to differentiate between more nuanced differences in readmission times.
+% Random forest
+The estimate $g(A_i|W_i)$, we reused the random forest model that we developed for the 30-day radmission risk analysis. In addition, we needed to develop models that estimated the survival function of both readmission ($Q(Y|t,A,W)$), and right-censoring (model $g_2(t,A,W)$). We estimated both survival functions in two steps, we first fit a Cox proportional hazards model, and then used that model to estimate a baseline survival function using the technique described by Fleming and Harrington \supercite{fleming_nonparametric_1984}. Stitleman described a technique in which a binary outcome would be fit to every unit of person-time. Although this model would be more flexible, it would be computationally very onerous because not only did we have thousands of covariates and tens of thousands of people in each disease cohort, they each were in the cohort for hundreds of days, leading to an information matrix with hundreds of millions of elements.
 
-%We then estimated the baseline survival function using the technique described in Fleming and Harrington. We combined the baseline survival function with the individual-level covariates to get the covariate-level specific survival function for each individual. We calculated the twenty readmission survival curves for each person, one for each hospital. We also calculated twenty censoring survival curves.
-% Fleming, T. H. and Harrington, D. P. (1984). Nonparametric estimation of the survival distribution in censored data. Comm. in Statistics 13, 2469-86. 
-
-%\subsubsection{Model $g$ - probability of exposure}
-% We built a model G
-%Using random forest, we developed a multinomial model $g$ that predicted the probability of attending each of the twenty hospitals (a propensity score) as a function of all the measured confounders. 
-
-
-%For the  \(Q\) model, we developed another random forest model, very similar to the \(g\) model, except that instead of predicting the choice of hospital, we directly predicted 30-day readmission. We also included a set of 20 indicator variables for the hospital attended. We also calibrated this model based on the inverse of the proportion of those readmitted.
-
-% How the Gini coefficient works.
-% Make it clear that you didn't invent this.
-% To assess the importance of the variables in predicting which hospital a patient will choose, for each tree, we calculate the increase in homogeneity of classes between the root of the tree and the leaves. To measure the homogeneity of classes, we repurpose a metric that is typically used to measure equality (homogeneity) of income, the Gini coefficient \supercite{gini_variabilita_1912}. The homogeneity is defined as the sum of squared proportions in each class (hospital), with a maximum of 1 (all discharges at the same hospital) and a minimum of 1/20 (the discharges were evenly divided between the 20 hospitals). If the patients within the leaves of the tree made relatively homogeneous hospital choices, this variable predicts hospital choice well.
-
-% We calibrated it based on the weights of the hospital. It was multinomial in that we predicted 20 hospitals. We measured the calibration, similarly only using out-of-bag discharges. We investigated the top 10 varibales most important variables, as measured by the Gini coefficient. 
- 
-%\subsubsection{\(Q\) model - probability of outcome}
-% We built a model Q
-% We built another random forest model, very similar to the model for G, except that instead of predicting the choice of hospital, we predicted 30-day readmission. We also included a set of 19 indicator variables (or was it twenty?) for the hospital. This was also calibrated based on the inverse of the proportion of those readmitted.
-
-%We also fit a regularized Cox proportional hazards model for \(Q\), using cyclical coordinate descent to estimate the parameters efficiently in our sparse but large information matrix. We penalized the likelihood by the \(\ell_2\) norm, that is, the sum of the squares of the normalized regression parameters. The scale of the penalty was determined by the parameter λ. We optimized the selection of the penalty scale for the best partial likelihood using a nested a 10-fold cross-validation. Within each fold we assessed 100 λ-values spaced evenly between max(λ)×10-4 and max(λ), where max(λ) was the smallest λ-value that would result in a model with no non-zero coefficients.
-
-%For each tree, we calculated the decrease in Gini homogeneity when comparing the split nodes of the tree to the root. 
-%The Gini impurity at any node is, for all out-of-bag discharges.
-
-% To calculate the Gini impurity..
-%For each hospital, the proportion of patients that chose this hospital $p_h$, multiplied by the probability of guessing that this patient would choose this hospital based on the distribution of patients $1-p_h$. Summed over all hospitals, this is the Gini impurity. Gini impurity is 1 when all patients chose the same hospital.
-
-%Gini is defined as "inequity" when used in describing a society's distribution of income, or a measure of "node impurity" in tree-based classification. A low Gini (i.e. higher decrease in Gini) means that a particular predictor variable plays a greater role in partitioning the data into the defined classes. 
+For both $Q$ and $g_2$, we fit a regularized Cox proportional hazards model, using cyclical coordinate descent to estimate the parameters efficiently in our sparse but large information matrix. We penalized the likelihood by the $\ell_2$ norm, also known as the lasso penalty. The scale of the penalty was determined by the parameter λ. We optimized the selection of the penalty scale for the best partial likelihood using a nested a 10-fold cross-validation. Within each fold we assessed 100 λ-values spaced evenly between max(λ)×10-4 and max(λ), where max(λ) was the smallest λ-value that would result in a model with no non-zero coefficients.
 
 \subsection{Comparison to assessment with comorbidity scores}
 Finally, we compared our results of our analysis with 1) a logistic regression for 30-day readmission and 2) a Cox proportional hazards model for the time-to-readmission. In these models, we included only the age, sex, number of previous admissions, and the Charlson comoribidity score (Elixhauser version), along with indicator variables representing the hospitals themselves.
 
 \subsection{Software}
-The data were cleaned and prepared for statistical analysis using the Postgres relational database (version 9.2.6). We implemented our models using the R statistical package (version 3.1.0) \supercite{team_r:_2014}. We implemented the random forest using the "bigrf" package (version 0.1.11) \supercite{lim_bigrf:_2014}. We implemented the GLM fitting using coordinate descent using the "glmnet" package (version 1.9.8) \supercite{friedman_regularization_2010}. We plotted our figures using the "ggplot2" package (version 1.0.0) \supercite{wickham_ggplot2:_2009}. All the code to develop used to fit clean our data, fit our models, and layout this paper is \href{https://github.com/nograpes/tmle_readmissions}{available for download at Github}.
+The data were cleaned and prepared for statistical analysis using the Postgres relational database (version 9.2.6). We implemented our models using the R statistical package (version 3.1.1) \supercite{team_r:_2014}. We implemented the random forest using the "bigrf" package (version 0.1.11) \supercite{lim_bigrf:_2014}. We implemented the GLM fitting using coordinate descent using the "glmnet" package (version 1.9.8) \supercite{friedman_regularization_2010}. We plotted our figures using the "ggplot2" package (version 1.0.0) \supercite{wickham_ggplot2:_2009}. All the code to develop used to fit clean our data, fit our models, and layout this paper is \href{https://github.com/nograpes/tmle_readmissions}{available for download at Github}.
 
 \section{Results}
-% A pretty map for pretty much no reason. It shows that indeed, certain hospitals attract the residents around them, and that this does not vary by disease.
 
-% We believed that census tract of residence would strongly affect the probability of admission to the hospital nearest that census tract. We plotted choropleths of the rate of attendance at the twenty hospitals by census tract. The numerator was the number of live discharges at the hospital, and the denominator was the number of person-years accumulated in that census tract of residence by cohort members when their admissions would have been eligible (after the first continuous year within the cohort).
 
-% \begin{figure}[H]
-%     \includegraphics{../figures/hosp_choro.png}
-%     \caption[Rates of seeking care at a selected hospital by admission diagnosis.]
-% {Rates of seeking care at a selected hospital by admission diagnosis in the island of Montreal. The numerator was the number of live discharges at the hospital, and the denominator was the number of person-years accumulated in that census tract of residence by cohort members when their admissions would have been eligible (after the first continuous year within the cohort). The areal units are census tracts.}
-%     \label{fig:hosp_choro}
-% \end{figure}
+Over the course of January 2, 1996 to March 31, 2006, 482,064 people were entered into our cohort. Among these, 16,521 were ever admitted for pneumonia, 13,884 were ever admitted for AMI, and 15,822 were ever admitted for heart failure. People ever admitted for pneumonia had a mean (median) 1.2 (1) pneumonia admissions, heart failure patients had a mean (median) 1.6 (1) heart failure admissions, and AMI patients had a mean (median) 1.1 (1) AMI admissions. In total, we analyzed 20,421 pneumonia discharges, 15,746 AMI discharges, and 24,847 heart failure discharges.
 
-Over the course of January 2, 1996 to March 31, 2006, 482 064 people were entered into our cohort. 
 
-Among these, x were ever admitted for pneumonia, y were ever admitted for AMI, and z were ever admitted for heart failure. 
 
-People ever admitted for pneumonia had a mean of x and median x2 pneumonia admissions , ever heart failure patients had a mean h1 and median h2 heart failure admissions, and ever AMI patients had a mean a1 and median a2 heart failure admissions.
+% 30-day readmission
+The unadjusted proportion of patients readmitted in 30 days varied across hospitals for each disease subset (Tables 1-3). Using a model that adjusts for a few well-known confounders, for AMI, heart failure, and pneumonia respectively, one, three, and five hospitals had significantly different odds than the reference hospital. Notably, the significant odds ratios (a relative scale) are all relatively small, with point estimates ranging from 0.92 - 1.04. For all admissions disease subsets, the TMLE-estimated marginal risk for 30-day readmission was constant across hospitals. 
+
+% Time-to-readmission
+The hazard ratios estimated from the Cox proportional hazard model adjusting for a few confounders were often significant, but did not generally agree, in either direction or scale, with when you compare the TMLE-estimated times-to-readmission with the same reference hospital. In Figure 3, we plotted the density of the TMLE-estimated marginal days-to-readmission, for those who were estimated to have less than 60 days to readmission. Nearly all densities exhibited a bimodal structure. Nearly all disease subsets and hospitals exhibited a bimodal structure in this density, 
+
+
 
 % What does the accuracy of the random forest model look like as the number of trees grows for both the Q model and the G model?
 \begin{figure}[H]
@@ -273,31 +251,6 @@ People ever admitted for pneumonia had a mean of x and median x2 pneumonia admis
     \label{fig:error_rate_for_hospital_choice}
 \end{figure}
 
-% Calibration of random forest
-% \begin{figure}[H]
-%     \includegraphics{../figures/rf_calibration.png}
-%     \caption[Calibration for random forest model of hospital readmission.]
-%       {Calibration for random forest model of hospital readmission. A descriptive sentence.}
-%     \label{fig:error_rate_for_hospital_choice}
-% \end{figure}
-% 
-% % Calibration of GLMnet
-% \begin{figure}[H]
-%     \includegraphics{../figures/glmnet_calibration.png}
-%     \caption[Calibration for GLMnet model of hospital readmission.]
-%       {Calibration for GLMnet model of hospital readmission. A descriptive sentence.}
-%     \label{fig:error_rate_for_hospital_choice}
-% \end{figure}
-
-% What are the top 10 predictive variables for the hospitals by disease?
-% \begin{figure}[H]
-%     \includegraphics{../figures/top_10_variable_importance_and_hospital.png}
-%     \caption[Error rate for random forest model of hospital choice.]
-%       {10 most important variables for the G model, by disease. A descriptive sentence.}
-%     \label{fig:top_10_variable_importance_and_hospital}
-% \end{figure}
-
-% How important are the different variables for each model by class?
 \begin{figure}[H]
     \includegraphics{../figures/variable_importance_by_model_and_class.png}
     \caption[Error rate for random forest model of hospital choice.]
@@ -307,7 +260,6 @@ People ever admitted for pneumonia had a mean of x and median x2 pneumonia admis
 
 
 % How important are the different variables for each model by class?
-
 \begin{figure}[H]
     \centerline{
       \includegraphics{../figures/tte_distribution.png}
@@ -327,7 +279,7 @@ People ever admitted for pneumonia had a mean of x and median x2 pneumonia admis
 \setmainfont[Scale=1]{Cambria}
 \linespread{1}
 
-%latex.default(pre.format, file = "", col.just = rep("r", 10),     cgroup = c("", "30-day readmission", "Time-to-readmission"),     n.cgroup = c(6, 2, 2), rowlabel = "Hospital", caption.loc = "bottom",     caption = pretty_names[disease])%
+%latex.default(pre.format, file = "", col.just = rep("r", 10),     cgroup = c("", "30-day readmission", "Time-to-readmission"),     n.cgroup = c(6, 2, 2), rowlabel = "Hospital", caption.loc = "bottom",     caption = pretty_names[disease], label = paste(disease, "table",         sep = "_"))%
 \begin{table}[!tbp]
 \begin{center}
 \begin{tabular}{lrrrrrrcrrcrr}
@@ -335,7 +287,7 @@ People ever admitted for pneumonia had a mean of x and median x2 pneumonia admis
 \multicolumn{1}{l}{\bfseries Hospital}&\multicolumn{6}{c}{\bfseries }&\multicolumn{1}{c}{\bfseries }&\multicolumn{2}{c}{\bfseries 30-day readmission}&\multicolumn{1}{c}{\bfseries }&\multicolumn{2}{c}{\bfseries Time-to-readmission}\tabularnewline
 \cline{9-10} \cline{12-13}
 \multicolumn{1}{l}{}&\multicolumn{1}{c}{Admitted}&\multicolumn{1}{c}{Died}&\multicolumn{1}{c}{(\%)}&\multicolumn{1}{c}{Discharged}&\multicolumn{1}{c}{Readmitted}&\multicolumn{1}{c}{(\%)}&\multicolumn{1}{c}{}&\multicolumn{1}{c}{Odds Ratio}&\multicolumn{1}{c}{Marginal risk}&\multicolumn{1}{c}{}&\multicolumn{1}{c}{Hazard Ratio}&\multicolumn{1}{c}{Marginal mean TTE}\tabularnewline
-&&&&&&&&\multicolumn{1}{c}{{\scriptsize (95\% CI)}}&&&\multicolumn{1}{c}{{\scriptsize (95\% CI)}}&\multicolumn{1}{c}{{\scriptsize (median)}}\tabularnewline
+&&&&&\multicolumn{1}{c}{{\scriptsize (30-day)}}&&&\multicolumn{1}{c}{{\scriptsize (95\% CI)}}&&&\multicolumn{1}{c}{{\scriptsize (95\% CI)}}&\multicolumn{1}{c}{{\scriptsize (median)}}\tabularnewline
 \hline
 1&$ 763$&$112$&$0.15$&$ 651$&$105$&$0.16$&&0.98 (0.95-1.01)&$0.16$&&0.92 (0.81-1.04)&916 (933)\tabularnewline
 2&$1557$&$148$&$0.10$&$1409$&$191$&$0.14$&&0.97 (0.95-1.00)&$0.16$&&0.89 (0.81-0.99)&877 (888)\tabularnewline
@@ -360,10 +312,10 @@ People ever admitted for pneumonia had a mean of x and median x2 pneumonia admis
 \hline
 \end{tabular}
 
-\caption{Acute myocardial infarction (AMI)\label{pre.format}}\end{center}
+\caption{Acute myocardial infarction (AMI)\label{ami_table}}\end{center}
 
 \end{table}
-%latex.default(pre.format, file = "", col.just = rep("r", 10),     cgroup = c("", "30-day readmission", "Time-to-readmission"),     n.cgroup = c(6, 2, 2), rowlabel = "Hospital", caption.loc = "bottom",     caption = pretty_names[disease])%
+%latex.default(pre.format, file = "", col.just = rep("r", 10),     cgroup = c("", "30-day readmission", "Time-to-readmission"),     n.cgroup = c(6, 2, 2), rowlabel = "Hospital", caption.loc = "bottom",     caption = pretty_names[disease], label = paste(disease, "table",         sep = "_"))%
 \begin{table}[!tbp]
 \begin{center}
 \begin{tabular}{lrrrrrrcrrcrr}
@@ -371,7 +323,7 @@ People ever admitted for pneumonia had a mean of x and median x2 pneumonia admis
 \multicolumn{1}{l}{\bfseries Hospital}&\multicolumn{6}{c}{\bfseries }&\multicolumn{1}{c}{\bfseries }&\multicolumn{2}{c}{\bfseries 30-day readmission}&\multicolumn{1}{c}{\bfseries }&\multicolumn{2}{c}{\bfseries Time-to-readmission}\tabularnewline
 \cline{9-10} \cline{12-13}
 \multicolumn{1}{l}{}&\multicolumn{1}{c}{Admitted}&\multicolumn{1}{c}{Died}&\multicolumn{1}{c}{(\%)}&\multicolumn{1}{c}{Discharged}&\multicolumn{1}{c}{Readmitted}&\multicolumn{1}{c}{(\%)}&\multicolumn{1}{c}{}&\multicolumn{1}{c}{Odds Ratio}&\multicolumn{1}{c}{Marginal risk}&\multicolumn{1}{c}{}&\multicolumn{1}{c}{Hazard Ratio}&\multicolumn{1}{c}{Marginal mean TTE}\tabularnewline
-&&&&&&&&\multicolumn{1}{c}{{\scriptsize (95\% CI)}}&&&\multicolumn{1}{c}{{\scriptsize (95\% CI)}}&\multicolumn{1}{c}{{\scriptsize (median)}}\tabularnewline
+&&&&&\multicolumn{1}{c}{{\scriptsize (30-day)}}&&&\multicolumn{1}{c}{{\scriptsize (95\% CI)}}&&&\multicolumn{1}{c}{{\scriptsize (95\% CI)}}&\multicolumn{1}{c}{{\scriptsize (median)}}\tabularnewline
 \hline
 1&$1229$&$141$&$0.11$&$1088$&$248$&$0.23$&&1.00 (0.97-1.03)&$0.22$&&0.98 (0.90-1.07)&416 (387)\tabularnewline
 2&$2071$&$166$&$0.08$&$1905$&$441$&$0.23$&&1.02 (0.99-1.05)&$0.22$&&0.96 (0.89-1.04)&404 (375)\tabularnewline
@@ -396,10 +348,10 @@ People ever admitted for pneumonia had a mean of x and median x2 pneumonia admis
 \hline
 \end{tabular}
 
-\caption{Heart failure\label{pre.format}}\end{center}
+\caption{Heart failure\label{heart_failure_table}}\end{center}
 
 \end{table}
-%latex.default(pre.format, file = "", col.just = rep("r", 10),     cgroup = c("", "30-day readmission", "Time-to-readmission"),     n.cgroup = c(6, 2, 2), rowlabel = "Hospital", caption.loc = "bottom",     caption = pretty_names[disease])%
+%latex.default(pre.format, file = "", col.just = rep("r", 10),     cgroup = c("", "30-day readmission", "Time-to-readmission"),     n.cgroup = c(6, 2, 2), rowlabel = "Hospital", caption.loc = "bottom",     caption = pretty_names[disease], label = paste(disease, "table",         sep = "_"))%
 \begin{table}[!tbp]
 \begin{center}
 \begin{tabular}{lrrrrrrcrrcrr}
@@ -407,7 +359,7 @@ People ever admitted for pneumonia had a mean of x and median x2 pneumonia admis
 \multicolumn{1}{l}{\bfseries Hospital}&\multicolumn{6}{c}{\bfseries }&\multicolumn{1}{c}{\bfseries }&\multicolumn{2}{c}{\bfseries 30-day readmission}&\multicolumn{1}{c}{\bfseries }&\multicolumn{2}{c}{\bfseries Time-to-readmission}\tabularnewline
 \cline{9-10} \cline{12-13}
 \multicolumn{1}{l}{}&\multicolumn{1}{c}{Admitted}&\multicolumn{1}{c}{Died}&\multicolumn{1}{c}{(\%)}&\multicolumn{1}{c}{Discharged}&\multicolumn{1}{c}{Readmitted}&\multicolumn{1}{c}{(\%)}&\multicolumn{1}{c}{}&\multicolumn{1}{c}{Odds Ratio}&\multicolumn{1}{c}{Marginal risk}&\multicolumn{1}{c}{}&\multicolumn{1}{c}{Hazard Ratio}&\multicolumn{1}{c}{Marginal mean TTE}\tabularnewline
-&&&&&&&&\multicolumn{1}{c}{{\scriptsize (95\% CI)}}&&&\multicolumn{1}{c}{{\scriptsize (95\% CI)}}&\multicolumn{1}{c}{{\scriptsize (median)}}\tabularnewline
+&&&&&\multicolumn{1}{c}{{\scriptsize (30-day)}}&&&\multicolumn{1}{c}{{\scriptsize (95\% CI)}}&&&\multicolumn{1}{c}{{\scriptsize (95\% CI)}}&\multicolumn{1}{c}{{\scriptsize (median)}}\tabularnewline
 \hline
 1&$1184$&$176$&$0.15$&$1008$&$159$&$0.16$&&1.00 (0.98-1.03)&$0.16$&&1.01 (0.92-1.11)&661 (657)\tabularnewline
 2&$ 199$&$ 11$&$0.06$&$ 188$&$ 31$&$0.16$&&1.02 (0.97-1.08)&$0.16$&&0.89 (0.75-1.07)&679 (674)\tabularnewline
@@ -420,10 +372,10 @@ People ever admitted for pneumonia had a mean of x and median x2 pneumonia admis
 9&$ 990$&$166$&$0.17$&$ 824$&$158$&$0.19$&&1.04 (1.01-1.08)&$0.16$&&0.95 (0.86-1.05)&664 (657)\tabularnewline
 10&$1214$&$139$&$0.11$&$1075$&$181$&$0.17$&&1.01 (0.99-1.04)&$0.16$&&1.04 (0.95-1.14)&659 (654)\tabularnewline
 11&$ 892$&$147$&$0.16$&$ 745$&$119$&$0.16$&&1.02 (0.98-1.05)&$0.16$&&0.93 (0.84-1.03)&666 (661)\tabularnewline
-12&$1102$&$185$&$0.17$&$ 917$&$ 91$&$0.10$&&0.96 (0.93-0.98)&$0.16$&&0.84 (0.76-0.92)&685 (679)\tabularnewline
+12&$1102$&$185$&$0.17$&$ 917$&$ 91$&$0.10$&&0.96 (0.93-0.98)&$0.15$&&0.84 (0.76-0.92)&685 (679)\tabularnewline
 13&$1914$&$204$&$0.11$&$1710$&$325$&$0.19$&&1.03 (1.00-1.05)&$0.16$&&0.97 (0.90-1.05)&649 (647)\tabularnewline
 14&$1980$&$278$&$0.14$&$1702$&$263$&$0.15$&&(Reference)&$0.16$&&(Reference)&645 (639)\tabularnewline
-15&$1365$&$179$&$0.13$&$1186$&$163$&$0.14$&&1.00 (0.97-1.03)&$0.16$&&0.95 (0.87-1.04)&653 (646)\tabularnewline
+15&$1365$&$179$&$0.13$&$1186$&$163$&$0.14$&&1.00 (0.97-1.03)&$0.15$&&0.95 (0.87-1.04)&653 (646)\tabularnewline
 16&$ 541$&$ 77$&$0.14$&$ 464$&$ 46$&$0.10$&&0.96 (0.93-1.00)&$0.16$&&0.80 (0.70-0.91)&707 (704)\tabularnewline
 17&$1338$&$163$&$0.12$&$1175$&$193$&$0.16$&&1.02 (0.99-1.05)&$0.16$&&1.06 (0.97-1.16)&655 (649)\tabularnewline
 18&$1356$&$168$&$0.12$&$1188$&$200$&$0.17$&&1.02 (0.99-1.04)&$0.16$&&1.03 (0.95-1.13)&656 (650)\tabularnewline
@@ -432,13 +384,9 @@ People ever admitted for pneumonia had a mean of x and median x2 pneumonia admis
 \hline
 \end{tabular}
 
-\caption{Pneumonia\label{pre.format}}\end{center}
+\caption{Pneumonia\label{pneumonia_table}}\end{center}
 
 \end{table}
-
-
-\setmainfont[Scale=1.25]{Cambria}
-\linespread{1.25}
 
 
 \end{landscape}
@@ -453,6 +401,10 @@ Several readmission risk models have been criticized on the basis that they fail
 
 We did not atempt to measure whether \emph{individual} readmissions were preventable, we instead opted to place readmissions within a counterfactual framework, and only identify the difference in readmission risk between hospitals, after controlling for differences in case-mix. 
 
+% Small odds ratios aren't meaningless.
+Because readmissions are relatively common, a small difference on a relative scale can imply a large difference on an absolute scale.
+
+
 % How does this relate to the counterfactual statement?
 The counterfactual model clarifies the study question: What is the difference in the proportion with an emergency readmission within 30 days if all patients had attended Hospital A vs Hospital B? The notion of a "preventable" readmission is implicit; if a patient would have been readmitted if treated at another hospital, then the readmission was preventable. Since we cannot directly observe the desired proportions, we estimate it by attempting to recreate exchangeability (control for confounding) among the populations that visited different hospitals.
 
@@ -466,7 +418,7 @@ The major competing risk for hospital readmission is death, but others include m
 There is no special significance of 30 days in readmission, except for the fact that it is (recently) widely used as a cutoff. Interestingly, the distribution of expected survival times in the first sixty days appears to be bimodal (although some hospitals did not display this property), but the "dip" between the modes occurs a little earlier, roughly around day 20. These two modes suggest sharp changes in the conditional failure probability, which may reflect differing mechanisms of hospital's effect on readmission. 
 
 % Readmission isn't always a bad thing. Maybe the probability of admission has changed.
-Differing \emph{admission} practices can strongly affect the rates of readmission. Since most patients (x\% in this cohort) return to the same hospital after readmission, if a hospital is more likely to admit patients than others, it will have a higher readmission rate. In some cases, like a major trauma, admission is certain, and in other cases, like a mild infection, admission is very improbable, but in most cases, there is some uncertainty in how patients are admitted. In future work, we plan to study the effect of the probability of admission on readmission.
+Differing \emph{admission} practices can strongly affect the rates of readmission. Since most  (89\% in this cohort) patients who are readmitted within 30 days are readmitted to the same hospital that they were discharged from, if a hospital is more likely to admit patients than others, it will have a higher readmission rate. In some cases, like a major trauma, admission is certain, and in other cases, like a mild infection, admission is very improbable, but in most cases, there is some uncertainty in how patients are admitted. In future work, we plan to study the effect of the probability of admission on readmission.
 
 % The influenza cohort.
 Entry to our cohort was dependent on having one diagnosis of a respiratory illness in an inpatient or outpatient setting. Respiratory illness was defined rather broadly, including extremely common diagnoses such as "cough". We expect that the the majority of 65-year old patients who would be hospitalized would have at least one respiratory illness diagnosis in an outpatient setting. 
@@ -505,10 +457,78 @@ We argue that if a large number of covariates are to be used, we lose the abilit
 % While it was totally possible to use SuperLearner (an ensemble learning technique), it was too computationally expensive; random forest is just one of the methods used in SuperLearner, and it was already very computationally expensive on these data.
 
 % Calibration
-Calibration of the random forest vote proportions in the Q model strongly affected estimates of our parameter of interest in the Q* update step. Other articles using non-parametric techniques typically combined them with other models in an ensemble learner (in particular SuperLearner has been often used with TMLE). The final step in the ensemble learner is to combine all the probability estimates in parametric model, which would effectively calibrate the probabilities. When a single, non-parametric technique is used, an additional, seperate calibration step is necessary to convert the ranking scores into a probability estimate.
+Calibration of the random forest vote proportions in the Q model strongly affected estimates of our parameter of interest in the $Q^*$ update step. Other articles using non-parametric techniques typically combined them with other models in an ensemble learner (in particular SuperLearner has been often used with TMLE). The final step in the ensemble learner is to combine all the probability estimates in parametric model, which would effectively calibrate the probabilities. When a single, non-parametric technique is used, an additional, seperate calibration step is necessary to convert the ranking scores into a probability estimate.
 
 % What about the whole repeated measure / hierarchical model thing?
 
 \printbibliography
 
+\section{Appendix}
+% Calibration of random forest
+% \begin{figure}[H]
+%     \includegraphics{../figures/rf_calibration.png}
+%     \caption[Calibration for random forest model of hospital readmission.]
+%       {Calibration for random forest model of hospital readmission. A descriptive sentence.}
+%     \label{fig:error_rate_for_hospital_choice}
+% \end{figure}
+
+
+% A pretty map for pretty much no reason. It shows that indeed, certain hospitals attract the residents around them, and that this does not vary by disease.
+
+% We believed that census tract of residence would strongly affect the probability of admission to the hospital nearest that census tract. We plotted choropleths of the rate of attendance at the twenty hospitals by census tract. The numerator was the number of live discharges at the hospital, and the denominator was the number of person-years accumulated in that census tract of residence by cohort members when their admissions would have been eligible (after the first continuous year within the cohort).
+
+%For each hospital, for each person-day, we computed the "clever covariate", which is a function of the readmission survival function, the censoring survival function, and the probability of hospital exposure. Using logistic regression (without an intercept term), we regressed the binary readmission status offset by the inverse logit of the conditional failure probability, at every unit of person-time, on to the clever covariate, yielding a single parameter epsilon. 
+
+
+% (The survival function $S(t)$ is the probability that a random person selected from the cohort has a probability of readmission [censoring] is greater than $t$.) A person was considered right-censored if they died, had a non-emergency readmission, they changed residence to a location outside of Quebec, or the study ended. 
+
+%We also modeled the time-to-readmission as a function of the hospital the patient receieved care at. Thirty days is an arbitrary cutoff, time-to-event allows us to differentiate between more nuanced differences in readmission times.
+
+%We then estimated the baseline survival function using the technique described in Fleming and Harrington. We combined the baseline survival function with the individual-level covariates to get the covariate-level specific survival function for each individual. We calculated the twenty readmission survival curves for each person, one for each hospital. We also calculated twenty censoring survival curves.
+% Fleming, T. H. and Harrington, D. P. (1984). Nonparametric estimation of the survival distribution in censored data. Comm. in Statistics 13, 2469-86. 
+
+%\subsubsection{Model $g$ - probability of exposure}
+% We built a model G
+%Using random forest, we developed a multinomial model $g$ that predicted the probability of attending each of the twenty hospitals (a propensity score) as a function of all the measured confounders. 
+
+
+%For the  \(Q\) model, we developed another random forest model, very similar to the \(g\) model, except that instead of predicting the choice of hospital, we directly predicted 30-day readmission. We also included a set of 20 indicator variables for the hospital attended. We also calibrated this model based on the inverse of the proportion of those readmitted.
+
+% How the Gini coefficient works.
+% Make it clear that you didn't invent this.
+% To assess the importance of the variables in predicting which hospital a patient will choose, for each tree, we calculate the increase in homogeneity of classes between the root of the tree and the leaves. To measure the homogeneity of classes, we repurpose a metric that is typically used to measure equality (homogeneity) of income, the Gini coefficient \supercite{gini_variabilita_1912}. The homogeneity is defined as the sum of squared proportions in each class (hospital), with a maximum of 1 (all discharges at the same hospital) and a minimum of 1/20 (the discharges were evenly divided between the 20 hospitals). If the patients within the leaves of the tree made relatively homogeneous hospital choices, this variable predicts hospital choice well.
+
+% We calibrated it based on the weights of the hospital. It was multinomial in that we predicted 20 hospitals. We measured the calibration, similarly only using out-of-bag discharges. We investigated the top 10 varibales most important variables, as measured by the Gini coefficient. 
+ 
+%\subsubsection{\(Q\) model - probability of outcome}
+% We built a model Q
+% We built another random forest model, very similar to the model for G, except that instead of predicting the choice of hospital, we predicted 30-day readmission. We also included a set of 19 indicator variables (or was it twenty?) for the hospital. This was also calibrated based on the inverse of the proportion of those readmitted.
+
+%We also fit a regularized Cox proportional hazards model for \(Q\), using cyclical coordinate descent to estimate the parameters efficiently in our sparse but large information matrix. We penalized the likelihood by the \(\ell_2\) norm, that is, the sum of the squares of the normalized regression parameters. The scale of the penalty was determined by the parameter λ. We optimized the selection of the penalty scale for the best partial likelihood using a nested a 10-fold cross-validation. Within each fold we assessed 100 λ-values spaced evenly between max(λ)×10-4 and max(λ), where max(λ) was the smallest λ-value that would result in a model with no non-zero coefficients.
+
+%For each tree, we calculated the decrease in Gini homogeneity when comparing the split nodes of the tree to the root. 
+%The Gini impurity at any node is, for all out-of-bag discharges.
+
+% To calculate the Gini impurity..
+%For each hospital, the proportion of patients that chose this hospital $p_h$, multiplied by the probability of guessing that this patient would choose this hospital based on the distribution of patients $1-p_h$. Summed over all hospitals, this is the Gini impurity. Gini impurity is 1 when all patients chose the same hospital.
+
+%Gini is defined as "inequity" when used in describing a society's distribution of income, or a measure of "node impurity" in tree-based classification. A low Gini (i.e. higher decrease in Gini) means that a particular predictor variable plays a greater role in partitioning the data into the defined classes. 
+
+
+% \begin{figure}[H]
+%     \includegraphics{../figures/hosp_choro.png}
+%     \caption[Rates of seeking care at a selected hospital by admission diagnosis.]
+% {Rates of seeking care at a selected hospital by admission diagnosis in the island of Montreal. The numerator was the number of live discharges at the hospital, and the denominator was the number of person-years accumulated in that census tract of residence by cohort members when their admissions would have been eligible (after the first continuous year within the cohort). The areal units are census tracts.}
+%     \label{fig:hosp_choro}
+% \end{figure}
+
+% What are the top 10 predictive variables for the hospitals by disease?
+% \begin{figure}[H]
+%     \includegraphics{../figures/top_10_variable_importance_and_hospital.png}
+%     \caption[Error rate for random forest model of hospital choice.]
+%       {10 most important variables for the G model, by disease. A descriptive sentence.}
+%     \label{fig:top_10_variable_importance_and_hospital}
+% \end{figure}
+
+% How important are the different variables for each model by class?
 \end{document}
