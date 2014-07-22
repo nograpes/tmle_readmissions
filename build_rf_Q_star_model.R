@@ -146,32 +146,43 @@ iptw <- exposure.mat  / modified.rf.prob.of.exposure
 # Using BFGS, I have much better chance of convergence, and slightly better fits.
 # It is a little slow but who cares?
 # Plus the names don't get mucked up because of rowname character restrictions.
-glm.BFGS<-function(x,y,offset=rep(plogis(0),length(Y))) {
-  likelihood<-function(betas) {
-    preds<-plogis(((x %*% t(betas)) + qlogis(offset)))
-    sum((y * log(preds)) + ((1-y)*log(1-preds)))
-  }
-  setNames(optim(rep(0,ncol(as.matrix(x))), 
-                 function(betas) abs(likelihood(betas)), method='BFGS')$par,
-           colnames(x))
-}
+# glm.BFGS<-function(x,y,offset=rep(plogis(0),length(Y))) {
+#   likelihood<-function(betas) {
+#     preds<-plogis(((x %*% t(betas)) + qlogis(offset)))
+#     sum((y * log(preds)) + ((1-y)*log(1-preds)))
+#   }
+#   setNames(optim(rep(0,ncol(as.matrix(x))), 
+#                  function(betas) abs(likelihood(betas)), method='BFGS')$par,
+#            colnames(x))
+# }
+# 
+# epsilons<-function(offset, iptw) {
+#   glm.BFGS(x=iptw,
+#            y=as.numeric(disease.df$day_30_readmit),
+#            offset=offset)
+# }
 
-epsilons<-function(offset, iptw) {
-  glm.BFGS(x=iptw,
-           y=as.numeric(disease.df$day_30_readmit),
-           offset=offset)
-}
+# Offset is fixed to the Q(A_i,W_i)
+# All epsilons can be fit in one model.
+iptw <- mapply(`==`, colnames(g.by.rf), disease.df['hosp']) / g.by.rf
 
-# Offset needs to change every time.
+
+rf.epsilons <- glm(disease.df$day_30_readmit~.-1,
+                   offset = qlogis(Q.as.observed.by.rf),
+                   data   = data.frame(iptw),
+                   family = binomial)$coef
+
+rf.Q.star <- plogis(t(t(qlogis(all.rf.Q.by.hosp)) + rf.epsilons))
+
+
 # IPTW needs to change every time.
 
 # I have chosen to use only the calibrated IPTW, because it is more theoretically sound. (I really don't care about accuracy here.)
-rf.epsilons <- mapply(epsilons, offset=data.frame(all.rf.Q.by.hosp) ,iptw=data.frame(iptw))
+# rf.epsilons <- mapply(epsilons, offset=data.frame(all.rf.Q.by.hosp) ,iptw=data.frame(iptw))
 
-Q.star<-function(Q, ptw, epsilons)
-				plogis(qlogis(Q) + ((ptw) %*% t(epsilons)))
+# Q.star<-function(Q, ptw, epsilons)
+# 				plogis(qlogis(Q) + ((ptw) %*% t(epsilons)))
 
-rf.Q.star <- mapply(Q.star, Q=data.frame(all.rf.Q.by.hosp), ptw=data.frame(modified.rf.prob.of.exposure), epsilons=rf.epsilons)	
-
-save(rf.Q.star, rf.epsilons, all.rf.Q.by.hosp, file=output.file)
+# rf.Q.star <- mapply(Q.star, Q=data.frame(all.rf.Q.by.hosp), ptw=data.frame(modified.rf.prob.of.exposure), epsilons=rf.epsilons)	
+save(rf.Q.star, rf.epsilons, all.rf.Q.by.hosp, g.by.rf, file=output.file)
 
