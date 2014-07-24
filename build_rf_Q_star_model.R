@@ -23,19 +23,19 @@ predict.by.tree<-function(tree.num, forest, data, cachepath=matrix.cache, n){
   xtype <- as.integer(.Call("CGetType", data@address, PACKAGE = "bigmemory"))
   tree<-forest[[tree.num]]
   treepredict.result <- .Call('treepredictC',
-                              data@address, xtype, n, forest, tree, 
+                              data@address, xtype, n, forest, tree,
                               PACKAGE = "bigrf")
   sapply(seq_along(levels(forest@y)),function(c){
     w <- treepredict.result$testpredclass == c
     ifelse(w,tree@nodewt[treepredict.result$testprednode],0)
-  })  
+  })
 }
 
 # This will calculate vote proportions for any rf model
 rf.probs <- function(rf.model, data, oob.only=TRUE){
   data.pointer <- bigrf:::makex(data, "xtest", cachepath=matrix.cache)
-  # Use foreach instead of 
-  prediction.by.tree<-foreach(tree=seq_along(rf.model)) %dopar% 
+  # Use foreach instead of
+  prediction.by.tree<-foreach(tree=seq_along(rf.model)) %dopar%
     predict.by.tree(tree.num=tree, forest=rf.model, data=data.pointer, n=nrow(data))
 
   # Now set all in-bag to NA
@@ -66,7 +66,7 @@ fixed.hosp.data <- function(hosp) {
 rf.prob.by.hosp <- function(rf.model, hosp, oob.only=TRUE)
   rf.probs(rf.model=rf.model, data=fixed.hosp.data(hosp), oob.only=oob.only)
 
-# G model - calibrated RF 
+# G model - calibrated RF
 g.votes <- rf.predict.exposure@oobvotes
 g.by.rf.unscaled <- g.votes / rowSums(g.votes)
 
@@ -76,8 +76,8 @@ one.v.all = sapply(colnames(g.by.rf.unscaled), function(x) disease.df$hosp == x)
 # I suppress warnings here because sometimes the model predict values
 # numerically equivalent to 1 or 0, which R complains about.
 g.by.rf <- mapply(function(y,x) suppressWarnings(predict(glm(y~x, family=binomial),
-                                type='response')),  
-                  data.frame(one.v.all, check.names=FALSE), 
+                                type='response')),
+                  data.frame(one.v.all, check.names=FALSE),
                   data.frame(g.by.rf.unscaled))
 
 # Q model - calibrated RF - as observed (A=a)
@@ -86,7 +86,7 @@ prob <- votes/rowSums(votes)
 vote.prop <- prob[,"TRUE"]
 
 # Very important to scale the vote proportions.
-platt.scaler <- 
+platt.scaler <-
   glm(disease.df$day_30_readmit ~ vote.prop, family=binomial(link='logit'))
 
 Q.as.observed.by.rf <-  predict(platt.scaler, type='response')
@@ -94,11 +94,11 @@ Q.as.observed.by.rf <-  predict(platt.scaler, type='response')
 # Q model - calibrated RF - manipulating exposure to each of twenty levels.
 # (A=1, A=2..,A=20)
 unscaled.all.rf.Q.by.hosp<-sapply(levels(disease.df$hosp),
-                                  function(x,rf.model) 
+                                  function(x,rf.model)
                                     rf.prob.by.hosp(rf.model,x)[,"TRUE"],
                                   rf.model=rf.predict.outcome)
 
-all.rf.Q.by.hosp <- apply(unscaled.all.rf.Q.by.hosp,2, 
+all.rf.Q.by.hosp <- apply(unscaled.all.rf.Q.by.hosp,2,
                            function(x) predict(platt.scaler,
                                                newdata=data.frame(prob=x),
                                                type='response'))
@@ -108,10 +108,7 @@ ff<-~hosp-1
 exposure.mat<-(model.matrix(ff,model.frame(ff, disease.df)))
 colnames(exposure.mat)<-gsub('^hosp','',colnames(exposure.mat))
 
-# Temporary fix:
-# For seven people, the probability of exposure (going to the hospital the went to) is exactly zero.
-# I'm going to bump it up slightly as a quick fix.
-# But this should be subject to a lot of analysis.
+# One way of solving the zero problem.
 bump.zeroes <- function(x){
   min.baseline<-min(x[x!=0])
   ifelse(x==0, min.baseline, x)
@@ -120,69 +117,21 @@ bump.zeroes <- function(x){
 # Exposure
 modified.rf.prob.of.exposure <- bump.zeroes(g.by.rf)
 
-# Outcome
-# modified.rf.prob.of.outcome <- bump.zeroes(rf.prob.of.outcome)
-
 # I want to find one epsilon for each hospital.
 # Each column becomes (A==a)/g
-iptw <- exposure.mat  / modified.rf.prob.of.exposure 
-
-# You don't have to run a model for each level, since all of the iptw vars are mutually exclusive (when one is nonzero, all rest are zero) putting them all in the same model is essentially the same thing.
-
-# Standard GLM fitter.
-# rf.epsilon.model<-glm(Y ~ .-1, 
-#                       offset=qlogis(modified.rf.prob.of.outcome), 
-#                       data=data.frame(Y=as.factor(disease.df$day_30_readmit),iptw),
-#                       family=binomial(link=logit))
-# 
-# 
-# rf.epsilons<-coef(rf.epsilon.model)
-
-# Normally, I would use the standard GLM fitter for these data.
-# It appears that sometimes the fitter, which uses Iterative Reweighted Least Squares (IRLS)
-# to fit the betas doesn't always fit well.
-# Indeed, for pneumonia, the one variable kept flipping back and forth, and would
-# never converge, despite having an extremely smooth, convex likelihood function.
-# Using BFGS, I have much better chance of convergence, and slightly better fits.
-# It is a little slow but who cares?
-# Plus the names don't get mucked up because of rowname character restrictions.
-# glm.BFGS<-function(x,y,offset=rep(plogis(0),length(Y))) {
-#   likelihood<-function(betas) {
-#     preds<-plogis(((x %*% t(betas)) + qlogis(offset)))
-#     sum((y * log(preds)) + ((1-y)*log(1-preds)))
-#   }
-#   setNames(optim(rep(0,ncol(as.matrix(x))), 
-#                  function(betas) abs(likelihood(betas)), method='BFGS')$par,
-#            colnames(x))
-# }
-# 
-# epsilons<-function(offset, iptw) {
-#   glm.BFGS(x=iptw,
-#            y=as.numeric(disease.df$day_30_readmit),
-#            offset=offset)
-# }
+iptw <- exposure.mat  / modified.rf.prob.of.exposure
 
 # Offset is fixed to the Q(A_i,W_i)
 # All epsilons can be fit in one model.
-iptw <- mapply(`==`, colnames(g.by.rf), disease.df['hosp']) / g.by.rf
 
+# Equivalent to setting I(A_i=a) / g(a|W_i)
+iptw <- mapply(`==`, colnames(g.by.rf), disease.df['hosp']) / g.by.rf
 
 rf.epsilons <- glm(disease.df$day_30_readmit~.-1,
                    offset = qlogis(Q.as.observed.by.rf),
                    data   = data.frame(iptw),
                    family = binomial)$coef
 
-rf.Q.star <- plogis(t(t(qlogis(all.rf.Q.by.hosp)) + rf.epsilons))
-
-
-# IPTW needs to change every time.
-
-# I have chosen to use only the calibrated IPTW, because it is more theoretically sound. (I really don't care about accuracy here.)
-# rf.epsilons <- mapply(epsilons, offset=data.frame(all.rf.Q.by.hosp) ,iptw=data.frame(iptw))
-
-# Q.star<-function(Q, ptw, epsilons)
-# 				plogis(qlogis(Q) + ((ptw) %*% t(epsilons)))
-
-# rf.Q.star <- mapply(Q.star, Q=data.frame(all.rf.Q.by.hosp), ptw=data.frame(modified.rf.prob.of.exposure), epsilons=rf.epsilons)	
+rf.Q.star <- plogis(qlogis(all.rf.Q.by.hosp) + t(rf.epsilons / t(g.by.rf)))
 save(rf.Q.star, rf.epsilons, all.rf.Q.by.hosp, g.by.rf, file=output.file)
 
