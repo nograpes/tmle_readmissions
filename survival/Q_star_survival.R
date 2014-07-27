@@ -246,7 +246,7 @@ for(i in seq_along(reduced.hosp.dfs)) {
   S.t_k.hosp <- rep(S.t_k.hosp, tte)
   reduced.hosp.dfs[[i]]$fixed.part <- S.t_k.hosp / 
           (reduced.hosp.dfs[[i]]$g1*reduced.hosp.dfs[[i]]$g2)
-  cutoff <- quantile(hosp.df$fixed.part,0.975)
+  cutoff <- quantile(reduced.hosp.dfs[[i]]$fixed.part,0.975)
   reduced.hosp.dfs[[i]]$fixed.part <-
     ifelse(reduced.hosp.dfs[[i]]$fixed.part > cutoff,
            cutoff, reduced.hosp.dfs[[i]]$fixed.part)
