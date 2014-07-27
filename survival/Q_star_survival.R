@@ -225,11 +225,11 @@ calc.S <- function(hosp.df) {
 }
 
 # Calculate clever covariate.
-calc.clever.covariate <- function(hosp.df) {
+calc.clever.covariate <- function(hosp.df, clever.covariate.max=100) {
   hosp.df$S0 <- calc.S(hosp.df)
   hosp.df$clever.covariate <- hosp.df$fixed.part / hosp.df$S
   # A simple fix
-  hosp.df$clever.covariate <- ifelse(hosp.df$clever.covariate > 100, 100, hosp.df$clever.covariate)
+  hosp.df$clever.covariate <- ifelse(hosp.df$clever.covariate > clever.covariate.max, clever.covariate.max, hosp.df$clever.covariate)
   hosp.df
 }
 
@@ -304,8 +304,6 @@ compute.tte.by.epsilon.and.hosp <- function(glmnet.model, hosp,
   baseline <- get.kalb.prent.surv(y, cut.x, coef=betas)
   compute.tte.by.baseline.and.epsilon(baseline, cut.x, epsilon)
 }
-
-debugonce(compute.tte.by.baseline.and.epsilon)
 
 computed.tte <- mapply(compute.tte.by.epsilon.and.hosp, 
                        hosp=hosps,epsilon=epsilons,
