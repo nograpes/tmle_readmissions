@@ -1,6 +1,5 @@
 CUR_DIR=.
 DATA_CLEAN_DIR=${CUR_DIR}/../data_clean
-# DATA_CLEAN_DIR=${CUR_DIR}/../report2
 DISEASE_SUBSET_DIR=${CUR_DIR}/disease_subsets
 
 DATA_DUMP_DIR=${CUR_DIR}/data_dump
@@ -41,7 +40,10 @@ ${DATA_DUMP_DIR}/crude_readmissions_risk_%.object	: ${DATA_DUMP_DIR}/disease_%.o
 		${RSCRIPT} ${CUR_DIR}/crude_readmission_risk.R $< $@
 		
 # Survival targets.	
-${SURVIVAL_DATA_DUMP_DIR}/Q_star_survival_%.object : ${DATA_DUMP_DIR}/disease_%.object ${DATA_DUMP_DIR}/rf_G_model_%.object ${SURVIVAL_DATA_DUMP_DIR}/glmnet_g_censor_%.object ${SURVIVAL_DATA_DUMP_DIR}/glmnet_Q_%.object ${SURVIVAL_DIR}/Q_star_survival.R
+# ${SURVIVAL_DATA_DUMP_DIR}/Q_star_survival_ami.object : ${DATA_DUMP_DIR}/disease_ami.object ${DATA_DUMP_DIR}/rf_G_calibrated_model_ami.object ${SURVIVAL_DATA_DUMP_DIR}/glmnet_g_censor_ami.object ${SURVIVAL_DATA_DUMP_DIR}/glmnet_Q_ami.object ${SURVIVAL_DIR}/Q_star_survival.R
+# 	${RSCRIPT} ${SURVIVAL_DIR}/Q_star_survival.R $^ $@
+
+${SURVIVAL_DATA_DUMP_DIR}/Q_star_survival_%.object : ${DATA_DUMP_DIR}/disease_%.object ${DATA_DUMP_DIR}/rf_G_calibrated_model_%.object ${SURVIVAL_DATA_DUMP_DIR}/glmnet_g_censor_%.object ${SURVIVAL_DATA_DUMP_DIR}/glmnet_Q_%.object ${SURVIVAL_DIR}/Q_star_survival.R
 	${RSCRIPT} ${SURVIVAL_DIR}/Q_star_survival.R $^ $@
 	
 ${SURVIVAL_DATA_DUMP_DIR}/glmnet_g_censor_%.object : ${DATA_DUMP_DIR}/disease_%.object ${SURVIVAL_DIR}/glmnet_g_censor.R
@@ -57,13 +59,13 @@ ${SURVIVAL_DATA_DUMP_DIR}/glmnet_Q_%.object : ${DATA_DUMP_DIR}/disease_%.object 
 # ${DATA_DUMP_DIR}/rf_Q_model_%.object : ${DATA_DUMP_DIR}/disease_%.object ${CUR_DIR}/build_rf_Q_model.R
 # 	${RSCRIPT} ${CUR_DIR}/build_rf_Q_model.R $< $@ ${MATRIX_CACHE_DIR}
 
-# ${DATA_DUMP_DIR}/rf_G_model_%.object : ${DATA_DUMP_DIR}/disease_%.object ${CUR_DIR}/build_rf_G_model.R
-# 	${RSCRIPT} ${CUR_DIR}/build_rf_G_model.R $< $@ ${MATRIX_CACHE_DIR}
+# ${DATA_DUMP_DIR}/rf_G_calibrated_model_%.object : ${DATA_DUMP_DIR}/disease_%.object ${CUR_DIR}/build_rf_G_calibrated_model.R
+# 	${RSCRIPT} ${CUR_DIR}/build_rf_G_calibrated_model.R $< $@ ${MATRIX_CACHE_DIR}
 
 ${DATA_DUMP_DIR}/rf_Q_calibrated_model_%.object : ${DATA_DUMP_DIR}/disease_%.object ${CUR_DIR}/build_rf_Q_model.R
 	${RSCRIPT} ${CUR_DIR}/build_rf_Q_calibrated_model.R $< $@ ${MATRIX_CACHE_DIR}
 
-${DATA_DUMP_DIR}/rf_G_calibrated_model_%.object : ${DATA_DUMP_DIR}/disease_%.object ${CUR_DIR}/build_rf_G_model.R
+${DATA_DUMP_DIR}/rf_G_calibrated_model_%.object : ${DATA_DUMP_DIR}/disease_%.object ${CUR_DIR}/build_rf_G_calibrated_model.R
 	${RSCRIPT} ${CUR_DIR}/build_rf_G_calibrated_model.R $< $@ ${MATRIX_CACHE_DIR}
 	
 # This idiom is the only way I know to have a pattern depend on a shell wildcard
