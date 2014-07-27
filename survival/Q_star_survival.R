@@ -276,6 +276,7 @@ while (iteration==1 || any(epsilons>delta)) {
   iteration <- iteration + 1
 }
 
+colnames(epsilon.mat) <- gsub('.clever.covariate','',colnames(epsilon.mat))
 epsilons <- colSums(epsilon.mat)
 
 
