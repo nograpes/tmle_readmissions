@@ -143,6 +143,7 @@ bounds = 10^(seq(-2,-5,by=-0.1))
 Q.star.by.bound = sapply(bounds, Q.star, simplify=FALSE)
 
 save(Q.star.by.bound, 
+     bounds,
      all.rf.Q.by.hosp, 
      g.by.rf, 
      file=output.file)
