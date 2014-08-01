@@ -140,7 +140,7 @@ Q.star <- function(bound) {
 }
 
 bounds = 10^(seq(-2,-5,by=-0.1))
-Q.star.by.bound = sapply(bounds, Q.star, simplify=FALSE)
+Q.star.by.bound = lapply(bounds, Q.star)
 
 save(Q.star.by.bound, 
      bounds,
