@@ -114,24 +114,35 @@ bump.zeroes <- function(x){
   ifelse(x==0, min.baseline, x)
 }
 
-# Exposure
-modified.rf.prob.of.exposure <- bump.zeroes(g.by.rf)
+# The traditional way is to bound:
+bound <- function (x, bounds=c(0.025,0.975)) 
+{
+  x <- ifelse(x>max(bounds),max(bounds),x)
+       ifelse(x<min(bounds),min(bounds),x)
+}
 
-# I want to find one epsilon for each hospital.
-# Each column becomes (A==a)/g
-iptw <- exposure.mat  / modified.rf.prob.of.exposure
+# Calculate Q.star by a specific bound of g
+Q.star <- function(bound) {
+  bound.g <- bound(g.by.rf,bounds=c(bound,1-bound))
+  iptw <- exposure.mat  / bound.g
+  
+  # Equivalent to setting I(A_i=a) / g(a|W_i)
+  iptw <- mapply(`==`, colnames(g.by.rf), disease.df['hosp']) /
+    bound.g
+  
+  rf.epsilons <- glm(disease.df$day_30_readmit~.-1,
+                     offset = qlogis(Q.as.observed.by.rf),
+                     data   = data.frame(iptw),
+                     family = binomial)$coef
+  
+  plogis(qlogis(all.rf.Q.by.hosp) + 
+         t(rf.epsilons / t(bound.g)))
+}
 
-# Offset is fixed to the Q(A_i,W_i)
-# All epsilons can be fit in one model.
+bounds = 10^(seq(-2,-5,by=-0.1))
+Q.star.by.bound = sapply(bounds, Q.star, simplify=FALSE)
 
-# Equivalent to setting I(A_i=a) / g(a|W_i)
-iptw <- mapply(`==`, colnames(g.by.rf), disease.df['hosp']) / g.by.rf
-
-rf.epsilons <- glm(disease.df$day_30_readmit~.-1,
-                   offset = qlogis(Q.as.observed.by.rf),
-                   data   = data.frame(iptw),
-                   family = binomial)$coef
-
-rf.Q.star <- plogis(qlogis(all.rf.Q.by.hosp) + t(rf.epsilons / t(g.by.rf)))
-save(rf.Q.star, rf.epsilons, all.rf.Q.by.hosp, g.by.rf, file=output.file)
-
+save(Q.star.by.bound, 
+     all.rf.Q.by.hosp, 
+     g.by.rf, 
+     file=output.file)
