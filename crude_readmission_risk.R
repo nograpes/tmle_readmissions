@@ -23,7 +23,8 @@ rownames(cc.id.discharge) <- NULL
 cc.id.discharge$discharge <- as.Date(cc.id.discharge$discharge)
 disease.df.cc <- merge(cc.id.discharge,disease.df)
 
-x.vars <- c('age','sex','hosp','prev_readmissions',grep('^cc_',colnames(disease.df.cc),value=TRUE))
+x.vars <- c('age','sex','hosp','prev_readmissions',
+            grep('^cc_',colnames(disease.df.cc),value=TRUE))
 base=14
 contrasts(disease.df.cc$hosp) <- contr.treatment(levels(disease.df$hosp), base=base)
 
@@ -33,9 +34,16 @@ coef.mat <- cbind(Estimate=coef(logistic.model),suppressMessages(confint(logisti
 logistic.mat<-exp(coef.mat[match(paste0('hosp',levels(disease.df$hosp))[-base],rownames(coef.mat)),])
 
 
-cox.model <- coxph(Surv(disease.df.cc$tte,!disease.df.cc$censor)~.,
-                   data=disease.df.cc[x.vars])
-hazards.mat <- cbind(Estimate=exp(cox.model$coef), exp(confint(cox.model)))
-hazards.mat <- hazards.mat[match(paste0('hosp',levels(disease.df$hosp))[-base],rownames(hazards.mat)),]
+manip.hosp <- function(hosp,df) {
+  df$hosp <- hosp
+  df
+}
 
-save(hazards.mat,logistic.mat,file=output.file, base=base)
+marginal.risk <- function(hosp)
+  mean(predict(logistic.model, 
+               newdata=manip.hosp(hosp, disease.df.cc[x.vars])))
+
+marginal.risk.by.hosp <- sapply(levels(disease.df.cc$hosp), marginal.risk)
+
+save(logistic.mat, marginal.risk.by.hosp,
+     file=output.file, base=base)
