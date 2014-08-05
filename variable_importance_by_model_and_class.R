@@ -47,7 +47,7 @@ p=ggplot(gini.types, aes(x=log(gini+exp(-12)),fill=type, order=type)) +
   theme(legend.position = 'bottom',text=element_text(family="Cambria")) +
   ylim(c(0,0.3)) +
   scale_fill_discrete('Variable class',labels=c(ct='Census tract',diagnosis='Diagnosis',drug='Drug',procedure='Procedure')) +
-  labs(x=expression(paste("Variable importance (",log(gini + e^-12),")",sep=""))  ,
+  labs(x=expression(paste("Variable importance (",log(Gini + e^-12),")",sep=""))  ,
        y='Density of variables (within class)') 
 ggsave(filename="figures/variable_importance_by_model_and_class.png", 
        plot=p,width=8.5 - (0.5*2),height=11*2/3,dpi=600)
