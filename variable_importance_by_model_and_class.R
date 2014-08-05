@@ -39,7 +39,7 @@ get.gini.types<-function(disease,model=c('G','Q')) {
 G.gini.types<-do.call(rbind,lapply(prefixes,get.gini.types,model='G'))
 Q.gini.types<-do.call(rbind,lapply(prefixes,get.gini.types,model='Q'))
 
-gini.types<-rbind(cbind(model='G (Outcome - hospital choice)',G.gini.types),cbind(model='Q (Outcome - hospital readmission)',Q.gini.types))
+gini.types<-rbind(cbind(model='g (Outcome - hospital choice)',G.gini.types),cbind(model='Q (Outcome - hospital readmission)',Q.gini.types))
 
 p=ggplot(gini.types, aes(x=log(gini+exp(-12)),fill=type, order=type)) +
   facet_grid(disease~model) +
