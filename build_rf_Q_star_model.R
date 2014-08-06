@@ -139,8 +139,8 @@ Q.star <- function(bound) {
          t(rf.epsilons / t(bound.g)))
 }
 
-bounds = 10^(seq(-2,-5,by=-0.1))
-Q.star.by.bound = lapply(bounds, Q.star)
+bounds = 10^(seq(-1,-5,by=-0.1))
+Q.star.by.bound = mclapply(bounds, Q.star)
 
 save(Q.star.by.bound, 
      bounds,

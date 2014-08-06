@@ -26,9 +26,10 @@ all: $(DISEASES_NO_PATH:%=${DATA_DUMP_DIR}/rf_Q_star_model_%.object)
 ${FIGURES_DIR}/variable_importance_by_model_and_class.png : $(DISEASES_NO_PATH:%=${DATA_DUMP_DIR}/rf_G_calibrated_model_%.object)  $(DISEASES_NO_PATH:%=${DATA_DUMP_DIR}/rf_Q_calibrated_model_%.object) $(DISEASES_NO_PATH:%=${DATA_DUMP_DIR}/disease_%.object)  ${CUR_DIR}/variable_importance_by_model_and_class.R
 	${RSCRIPT} ${CUR_DIR}/variable_importance_by_model_and_class.R
 
-${FIGURES_DIR}/tte_distribution.png : $(DISEASES_NO_PATH:%=${SURVIVAL_DATA_DUMP_DIR}/Q_star_survival_%.object) ${SURVIVAL_DIR}/tte_distribution.R
-	${RSCRIPT} ${SURVIVAL_DIR}/tte_distribution.R
+# ${FIGURES_DIR}/tte_distribution.png : $(DISEASES_NO_PATH:%=${SURVIVAL_DATA_DUMP_DIR}/Q_star_survival_%.object) ${SURVIVAL_DIR}/tte_distribution.R
+# 	${RSCRIPT} ${SURVIVAL_DIR}/tte_distribution.R
 
+# $(DISEASES_NO_PATH:%=${SURVIVAL_DATA_DUMP_DIR}/Q_star_survival_%.object)
 ${TABLES_DIR}/disease.results.table.object : $(DISEASES_NO_PATH:%=${DATA_DUMP_DIR}/rf_Q_star_model_%.object)	 $(DISEASES_NO_PATH:%=${DATA_DUMP_DIR}/disease_%.object)	    $(DISEASES_NO_PATH:%=${DATA_DUMP_DIR}/crude_readmissions_risk_%.object)	
 	${RSCRIPT} ${CUR_DIR}/disease_tables.R $@
 

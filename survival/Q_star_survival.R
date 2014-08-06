@@ -12,6 +12,7 @@ if (interactive()) arguments<-c('data_dump/disease_heart_failure.object',
                                 'survival/data_dump/glmnet_g_censor_heart_failure.object',
                                 'survival/data_dump/glmnet_Q_heart_failure.object',
                                 'survival/Q_star_survival.R',
+                                'matrix_cache',
                                 'survival/data_dump/Q_star_survival_heart_failure.object')
 
 object.file <- arguments[1]
@@ -19,7 +20,8 @@ rf.G.object <- arguments[2]
 survival.censor.object <- arguments[3]
 survival.Q.object <- arguments[4]
 R.file <- arguments[5] # Because I can't get the Makefile to not pass these.
-output.file <- arguments[6]
+matrix.cache <- arguments[6]
+output.file <- arguments[7]
 
 load(object.file)
 load(rf.G.object)
@@ -163,7 +165,6 @@ hosp.dfs <- lapply(hosps,
             id      = rep(seq.int(nrow(disease.df)), times=disease.df$tte),
             A       = rep(disease.df$hosp, times=disease.df$tte),
             QAW     = unlist(outcome.S0.and.Q.list$cond.fail.as.observed),
-            Q.star  = unlist(outcome.S0.and.Q.list$cond.fail.as.observed),
 				    Q       = unlist(outcome.S0.and.Q.list$cond.fail[[hosp]]),
 						hazard  = unlist(outcome.S0.and.Q.list$hazard[[hosp]]),
 						# S.ratio = unlist(outcome.S0.and.Q.list$s.ratio[[hosp]]),
@@ -214,14 +215,14 @@ clip <- function(x){
 }
 
 for(i in seq_along(hosp.dfs)) {
-  hosp.dfs[[i]]$Q.star <- clip(hosp.dfs[[i]]$Q.star)
+  hosp.dfs[[i]]$Q <- clip(hosp.dfs[[i]]$Q)
   hosp.dfs[[i]]$n1 <- with(hosp.dfs[[i]], !censor & (time==tte))
 }
 
 # Calculate S.ratio 
 calc.S <- function(hosp.df) {
-  split.Q.star <- split(hosp.df$Q.star, hosp.df$id)
-  unlist(lapply(split.Q.star, function(x) cumprod(1-x)))
+  split.Q <- split(hosp.df$Q, hosp.df$id)
+  unlist(lapply(split.Q, function(x) cumprod(1-x)))
 }
 
 # Calculate clever covariate.
@@ -254,22 +255,130 @@ for(i in seq_along(reduced.hosp.dfs)) {
 
 
 fit.epsilon <- function(hosp.df) 
-  glm(n1~clever.covariate-1,offset=qlogis(Q.star), data=hosp.df)$coef
+  glm(n1~clever.covariate-1,offset=qlogis(Q), data=hosp.df)$coef
 
-update.Q.star <- function(hosp.df,epsilon) {
-  hosp.df$Q.star <- with(hosp.df,
-                         plogis(qlogis(Q.star) + (epsilon*clever.covariate)))
+update.Q <- function(hosp.df,epsilon) {
+  hosp.df$Q <- with(hosp.df,
+                    plogis(qlogis(Q) + (epsilon*clever.covariate)))
   hosp.df
 }
 
 is.bad<-function(x) is.na(x) | is.infinite(x) | is.nan(x)
+
+# Write inital Q* to disk.
+hosp.Q.star.files <- paste0(matrix.cache,'/',gsub('/','',hosps), 'Q.star.object')
+hosp.constant.mat.files <- paste0(matrix.cache,'/',gsub('/','',hosps), 'constant.mat.object')
+names(hosp.Q.star.files) <- names(hosp.constant.mat.files) <- hosps
+
+write.init.Q.star <- function() {
+  s.type='lambda.min'
+  readmission.model <- glmnet.predict.outcome
+  censor.model <- glmnet.predict.censor
+  x <- disease.big.matrix
+  y.readmission <- Surv(disease.df$tte, !disease.df$censor)
+  y.censor <- Surv(disease.df$tte, disease.df$censor)
+
+  get.baseline <- function(glmnet.model, s.type, x, y) {
+    s <- match(glmnet.model[[s.type]], glmnet.model$lambda)
+    betas <- get.betas(glmnet.model, s)
+    cut.x <- get.cut.x(x, betas)
+    get.kalb.prent.surv(y, cut.x, coef=betas)
+  }
+  
+  baseline.readmission <- get.baseline(readmission.model, s.type, x, y.readmission)
+  baseline.censor <- get.baseline(censor.model, s.type, x, y.censor)
+  
+  hosps <- levels(disease.df$hosp)
+  cols <- paste0('hosp', hosps)
+  
+  x.mat.list <- mclapply(cols, function(x) {
+    if (x %in% colnames(cut.x)) cut.x[,x]<-1
+    cut.x
+  })
+
+  get.surv <- function (baseline, new.x, time) {
+    scaled.new.x <- scale(new.x, center = baseline$center, scale = FALSE)
+    scaled.new.risk <- exp(scaled.new.x %*% baseline$coef)
+    base <- baseline$surv [1:time]
+    sapply(c(scaled.new.risk), function(x) base^x)
+  }
+  
+  get.cond.fail <- function(baseline, new.x, time) {
+    m <- get.surv(baseline, new.x, time)
+    apply(m,2,function(s) 1 - inv.cumprod(s))
+  }
+  
+  for (i in seq_along(x.mat.list)) {
+    # Get conditional failure
+    cond.fail = get.cond.fail(new.x=x.mat.list[[i]], 
+                              baseline=baseline.readmission, 
+                              time=max.time)
+    surv.censor = get.surv(new.x=x.mat.list[[i]], 
+                           baseline=baseline.censor, 
+                           time=max.time)
+    # Write to disk (too big for memory)
+    save(cond.fail, file=hosp.Q.star.files[hosp])
+    save(surv.censor, file=hosp.constant.mat.files[hosp])
+  }
+  return(NULL)
+}
+
+get.Q.star <- function(hosp) {
+  load(file=hosp.files[hosp])
+  return(cond.fail)
+}
+
+invisible(write.init.Q.star())
+
+
+
+
+
+# Get the constant for Q*
+g.by.rf # g
+ # S_0(a)
+censor.probs[[hosp]] # S_c(a)
+
+
+
+Q.star <- sapply(hosps, function(hosp) 
+                 lapply(outcome.S0.and.Q.list$surv[[hosp]], head, n=max.time),
+                 simplify=FALSE)
+
+update.Q.star <- function() {
+  
+}
+
+names(Q.star)
+
+get.Q.star.init <- function(g_a, S_c, S_0, max.time) {
+  1/(g_a)*S_c 
+}
+
+
+drop.all.probs(
+  glmnet.model=glmnet.predict.outcome,
+  y=Surv(disease.df$tte, !disease.df$censor),
+  x=disease.big.matrix)
+
+prod(dim(disease.big.matrix))
+
+# Calculate g2 (probability of censoring by time)
+censor.probs <-drop.all.probs(
+  glmnet.model=glmnet.predict.censor,
+  y=Surv(disease.df$tte, disease.df$censor),
+  x=disease.big.matrix)$surv
+names(censor.probs) <- hosps
+
+
+
 
 iteration <- 1
 delta <- 1e-10
 while (iteration==1 || any(epsilons>delta)) {
   reduced.hosp.dfs <- lapply(reduced.hosp.dfs, calc.clever.covariate)
   epsilons <- sapply(reduced.hosp.dfs, fit.epsilon) 
-  reduced.hosp.dfs <- mapply(update.Q.star,reduced.hosp.dfs,epsilons,
+  reduced.hosp.dfs <- mapply(update.Q,reduced.hosp.dfs,epsilons,
                              SIMPLIFY=FALSE)
   if(iteration!=1) epsilon.mat <- rbind(epsilon.mat,epsilons)
   else epsilon.mat <- t(epsilons)

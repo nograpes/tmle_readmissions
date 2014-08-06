@@ -37,9 +37,7 @@ median.tte <- aggregate(data.frame(median.tte=melted.df$tte),by=melted.df[c('hos
 melted.df <- merge(melted.df,median.tte)
 
 melted.df$hosp_num <- match(melted.df$hospital,colnames(models[[1]]$epsilon.mat))
-
 melted.df$hospital_name <- paste('Hsp',melted.df$hosp_num,sep=' ')
-
 melted.df <- melted.df[order(as.numeric(melted.df$hosp_num)),]
 
 # Otherwise the hospitals will appear in character order.

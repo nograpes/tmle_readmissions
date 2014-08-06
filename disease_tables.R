@@ -114,8 +114,51 @@ disease.table<-function(disease, bound) {
   cbind(dump.base.stats(disease), Reduce(cbind, model.tables))
 }
 
-disease.results.table<-sapply(prefixes, 
-                              disease.table, 
-                              bound=c(10^-1.6,10^-2), 
-                              simplify=FALSE)
-save(disease.results.table,file=output.file)
+bound.expression <- list(expression(10^-2),expression(10^-2.5))
+disease.results.table <- sapply(prefixes, 
+                                disease.table, 
+                                bound=sapply(bound.expression,eval), 
+                                simplify=FALSE)
+
+# Also want to calculate a linear correlation between the in-hospital deaths and the proportion readmitted.
+# I'm not sure how to account for the variance here.
+# 
+# df=with(disease.results.table[[2]], data.frame(died, 
+#                                             admitted, 
+#                                             readmitted,
+#                                             discharged=live.discharge))
+# 
+# # Data
+# df = structure(list(died = c(141L, 166L, 134L, 122L, 181L, 107L, 386L, 197L, 111L, 149L, 153L, 162L, 102L, 234L, 190L, 94L, 139L, 212L, 99L, 167L), admitted = c(1229L, 2071L, 1243L, 1076L, 1550L, 827L, 2917L, 1456L, 881L, 1410L, 1297L, 1323L, 1231L, 2110L, 1389L, 681L, 1438L, 1984L, 932L, 1048L), readmitted = c(248L, 441L, 285L, 214L, 288L, 128L, 666L, 232L, 157L, 311L, 258L, 192L, 262L, 424L, 203L, 111L, 328L, 438L, 163L, 171L), discharged = c(1088L, 1905L, 1109L, 954L, 1369L, 720L, 2531L, 1259L, 770L, 1261L, 1144L, 1161L, 1129L, 1876L, 1199L, 587L, 1299L, 1772L, 833L, 881L)), .Names = c("died", "admitted", "readmitted", "discharged"), row.names = c(NA, -20L), class = "data.frame")
+# 
+# df$died.prop <- df$died / df$admitted
+# df$readmitted.prop <- df$readmitted / df$discharged
+# 
+# #    died admitted readmitted discharged  died.prop readmitted.prop
+# # 1   141     1229        248       1088 0.11472742       0.2279412
+# # 2   166     2071        441       1905 0.08015451       0.2314961
+# # 3   134     1243        285       1109 0.10780370       0.2569883
+# # 4   122     1076        214        954 0.11338290       0.2243187
+# # 5   181     1550        288       1369 0.11677419       0.2103725
+# # 6   107      827        128        720 0.12938331       0.1777778
+# # 7   386     2917        666       2531 0.13232773       0.2631371
+# # 8   197     1456        232       1259 0.13530220       0.1842732
+# # 9   111      881        157        770 0.12599319       0.2038961
+# # 10  149     1410        311       1261 0.10567376       0.2466297
+# # 11  153     1297        258       1144 0.11796453       0.2255245
+# # 12  162     1323        192       1161 0.12244898       0.1653747
+# # 13  102     1231        262       1129 0.08285946       0.2320638
+# # 14  234     2110        424       1876 0.11090047       0.2260128
+# # 15  190     1389        203       1199 0.13678906       0.1693078
+# # 16   94      681        111        587 0.13803231       0.1890971
+# # 17  139     1438        328       1299 0.09666203       0.2525019
+# # 18  212     1984        438       1772 0.10685484       0.2471783
+# # 19   99      932        163        833 0.10622318       0.1956783
+# # 20  167     1048        171        881 0.15935115       0.1940976
+# 
+# cor(df$died.prop, df$readmitted.prop) # -0.55
+
+death.and.readmissions.cor <- 
+  sapply(disease.results.table, function(x) cor(x$died.prop,x$prop))
+           
+save(disease.results.table, bound.expression, death.and.readmissions.cor, file=output.file)

@@ -119,24 +119,29 @@ Additionally, for each discharge, we collected the Quebec hospital diagnoses, Qu
 % Area of residence.
 We believed that residential location would strongly affect the probability of admission to the hospital nearest that census tract. We included it in our models because we also expected it to crudely approximate a (expected) confounder: socio-economic status.  We used the residential postal code at the time of admission to assign each patient in the cohort to a census tract, as defined by the 2006 Canadian census. (Census tracts contain between 2,500 and 8,000 people, and, at the time of their creation, are demarcated so as to maximize homogeneity of socioeconomic characteristics.)
 
-\subsection{Statistical Analyses}
-For each discharge $i$, we sought to estimate the effect of each of the twenty hospitals ($A_i$) on 30-day readmission ($Y_i$), accounting for the vector of confounders $W_i$. To estimate this risk, we used targeted maximum likelihood estimation, which consisted of four steps: 1) estimation of a propensity score $g(A_i|W_i)$, 2) an initial estimate of a model of readmission risk based on all confounders $W_i$ and the variables for each of the hospitals $Q(Y_i|A_i,W_i)$, 3) calculation $h(A,W_i)$ (sometimes referred to as the clever covariate) described in Equation \ref{logistic_clever_covariate}
+\subsection{30-day readmission}
+For each discharge $i$, we sought to estimate the effect of each of the twenty hospitals $A \in \left\{ {hosp_1, \dots ,hosp_{20}}\right\}$ on 30-day readmission ($Y$), accounting for the vector of confounders ($W$). To estimate this risk, we used targeted maximum likelihood estimation, which consisted of several steps. We first estimated of a model of the propensity score $g=Pr(A|W)$ (using random forest described below). Next, we estimated of a model of readmission risk based on the confounders $W$ and the variables for each of the hospitals $Q=Pr(Y=1|A,W)$. We then calculated $h_a(A,W)$ (sometimes referred to as the clever covariate) described in equation \ref{logistic_clever_covariate}
 
 \begin{equation}
 \label{logistic_clever_covariate}
-h(A,W_i)=\frac{I(A=a)}{g(A=a|W_i)}
+h_a(A,W)=\frac{I(A=a)}{g(a|W)}
 \end{equation}
 
-where $I$ is the indicator function which evaluates to 1 when its argument is true, and 0 otherwise, and 4) a final step in which we fit twenty models $Q^*_i$, in which we regress the 30-day readmission outcome $Y_i$ onto $h(A,W_i)$ offset by the initial estimate of readmission risk $Q(A_i,W_i)$ as described in Equation \ref{logistic_fluctuation_function}.
+(where $I$ is the indicator function which evaluates to 1 when its argument is true, and 0 otherwise), and solved for all ${\epsilon}_a$ in fluctuation function described in equation \ref{logistic_fluctuation_function}.
 
 \begin{equation}
 \label{logistic_fluctuation_function}
-Q^*=expit(logit(Q(Y_i|A,W_i)) + \epsilon \times h(A,W_i))
+Y_i=expit(logit(Q(Y_i|A_i,W_i)) + \sum_{a=hosp_1}^{hosp_{20}} {\epsilon}_a \times h_a(A_i,W_i))
 \end{equation}
 
-We used this because...
+We solved for all twenty ${\epsilon}_a$ by fitting by regressing the 30-day readmission outcome $Y$ (with a logit link function) onto $h_a(A,W_i)$ (with no intercept) offset by the inverse logit of the initial estimate of readmission risk $Q=(Y|A,W)$. Finally, for each discharge, we computed the estimated risk of 30-day readmission for all twenty counterfactual conditions (the risk of readmission for every discharge as if they had attended different hospital) using Equation \ref{Q_star_logistic}.
 
-We ended up with a nice vector ...
+\begin{equation}
+\label{Q_star_logistic}
+Q^*_{ai}= expit(logit(Q(Y|a,W_i)) + \frac{\epsilon}{g(a|W)})
+\end{equation}
+
+For each hospital, we then cacluated the mean readmission risk ($Q^*_a$) and associated odds ratio.
 
 % Random forest
 % Still missing: How far out were the trees grown?
@@ -148,46 +153,11 @@ For both models $g(A_i|W_i)$ and $Q(Y_i|A,W_i)$, we arbitrarily chose to grow 12
 To describe importance of the covariates in both models $g(A_i|W_i)$ and $Q(Y_i|A,W_i)$, for each variable, we measured the decrease in the Gini coefficient for each partition in which the variable was used, in every tree. A low Gini (i.e. higher decrease in Gini) means that a particular predictor variable plays a greater role in partitioning the data into the defined classes. We plotted the densities of variables with four different classes (census tract, procedure, diagnosis and drug) at different levels of Gini decreases.
 
 % Calibration
-Random forest traditionally classifies each item by majority vote; we converted this into a probability by taking the proportion of votes for each hospital (using only out-of-bag trees for each discharge). Although the vote proportion is in the scale of zero to one, it is not calibrated well as a probability; to calibrate the vote proportion, we used Platt scaling(effectively logistic regression of the outcome ($Y_i$) onto the vote proportion).
+Random forest classifies each item by majority vote. Although the vote proportion is in the scale of zero to one, it is not calibrated well as a probability; to calibrate the vote proportion, we used Platt scaling (logistic regression of the outcome ($Y_i$) on to the vote proportion). 
 
-% The Q* convergence problem.
-To avoid convergence problems when fitting $Q^*$, we fit the parameter using a quasi-Newton method simultaneously discovered by Broyden\supercite{broyden_convergence_1970}, Fletcher\supercite{fletcher_new_1970}, Goldfarb\supercite{goldfarb_family_1970} and Shanno\supercite{shanno_conditioning_1970} (BFGS).
-
-Despite having a likelihood function with a single maximum, the Newton-Raphson optimization technique did not converge for one of the sixty $Q^*$ models. We fit all $Q^*$ models using a quasi-Newton method simultaneously discovered by Broyden\supercite{broyden_convergence_1970}, Fletcher\supercite{fletcher_new_1970}, Goldfarb\supercite{goldfarb_family_1970} and Shanno\supercite{shanno_conditioning_1970} (BFGS).
-
-% We updated for Q*
-% \subsubsection{Model Q* - updated targeted maximum likelihood estimation}
-% To combine our both our models G and Q, we fit twenty (one for each hospital) one-parameter logistic regression models called Q*. Q* was fit as a logistic regression with no intercept; we regressed readmission on to the inverse probability of exposure to that hospital, offset by the Q's prediction of readmission. We then used Q* to calculate the marginal probability of exposure for each hospital.
-
-\subsection{Time-to-event analysis}
-% As described in Stitleman.
-We also estimated the effect of the twenty hospitals on the time-to-readmission. In general, we followed the method for (non-collaborative) TMLE for survival analysis outlined in Stitleman\supercite{stitelman_collaborative_2010}, with some deviation.
-
-The steps for TMLE in survival analysis are: 1) Estimate $g$ the probability of exposure (attending each hospital) 2) Estimate $g_2$ the probability of right censorship 3) Estimate $S_0$ the survival function for each person for each level of exposure. 4) Combine $g$, $g_2$ and $S_0$ into the clever covariate $h(t,A,W)$
-
-\begin{equation}
-\label{survival_clever_covariate}
-h(t,A,W)=\frac{I(A=a)}{g(A=a|W)\prod_{i=1}^t1-g_2(i|A,W)}\frac{S_0(t_k|A,W)}{S_0(t|A,W)}
-\end{equation}
-
-which is then similarly fit as in the binary outcome version described above, except offset by the conditional failure probability (as derived from $S_0$) described Equation \ref{survival_fluctuation_function}.
-
-\begin{equation}
-\label{survival_fluctuation_function}
-Q^*=expit(logit(1-\frac{S_0(t|A,W_i)}{S_0(t-1|A,W_i)}) + \epsilon \times h(t,A,W_i))
-\end{equation}
-
-% We then iteratively refit epsilon ...
-We then iterated the procedure: we repeated the same logistic regression, except that we offset the binary readmission status by the inverse logit of the conditional failure probability plus the epsilon in the previous iteration. We iterated until the epsilon was less than $1^{-10}$.
-
-Using the sum of the epsilons for all iterations for each hospital, we could then compute an "updated" survival function for each person for each hospital, which allowed us to estimate the expected time-to-readmission for each person as if they were cared for at each separate hospital. We compared the distribution of marginal survival times, as well as the marginal mean and median survival times.
-
-And this got us to what parameter ...
-
-% Random forest
-The estimate $g(A_i|W_i)$, we reused the random forest model that we developed for the 30-day radmission risk analysis. In addition, we needed to develop models that estimated the survival function of both readmission ($Q(Y|t,A,W)$), and right-censoring (model $g_2(t,A,W)$). We estimated both survival functions in two steps, we first fit a Cox proportional hazards model, and then used that model to estimate a baseline survival function using the technique described by Fleming and Harrington \supercite{fleming_nonparametric_1984}. Stitleman described a technique in which a binary outcome would be fit to every unit of person-time. Although this model would be more flexible, it would be computationally very onerous because not only did we have thousands of covariates and tens of thousands of people in each disease cohort, they each were in the cohort for hundreds of days, leading to an information matrix with hundreds of millions of elements.
-
-For both $Q$ and $g_2$, we fit a regularized Cox proportional hazards model, using cyclical coordinate descent to estimate the parameters efficiently in our sparse but large information matrix. We penalized the likelihood by the $\ell_2$ norm, also known as the lasso penalty. The scale of the penalty was determined by the parameter λ. We optimized the selection of the penalty scale for the best partial likelihood using a nested a 10-fold cross-validation. Within each fold we assessed 100 λ-values spaced evenly between max(λ)×10-4 and max(λ), where max(λ) was the smallest λ-value that would result in a model with no non-zero coefficients.
+% gbound
+% When the proability of exposure $g(a|w)$ is very low, the value of $h_a(A,W)$ be very high, 
+% \ref{logistic_clever_covariate}.
 
 \subsection{Comparison to assessment with comorbidity scores}
 Finally, we compared our results of our analysis with 1) a logistic regression for 30-day readmission and 2) a Cox proportional hazards model for the time-to-readmission. In these models, we included only the age, sex, number of previous admissions, and the Charlson comoribidity score (Elixhauser version), along with indicator variables representing the hospitals themselves.
@@ -211,7 +181,6 @@ The data were cleaned and prepared for statistical analysis using the Postgres r
   }
 
   models <- sapply(prefixes, get.data, simplify=FALSE)
-
   readmitted.to.same.hosp <- prop.table(rowSums(sapply(models,function(x) {
     y <- x$disease.df[x$disease.df$day_30_readmit,]
     table(as.character(y$hosp)==as.character(y$readmission_hosp))
@@ -228,47 +197,33 @@ The data were cleaned and prepared for statistical analysis using the Postgres r
 
 Over the course of January 2, 1996 to March 31, 2006, \Sexpr{num(482064)} people were entered into our cohort. Among these, \Sexpr{num(ever.admitted$pneumonia)} were ever admitted for pneumonia, \Sexpr{num(ever.admitted$ami)} were ever admitted for AMI, and \Sexpr{num(ever.admitted$heart_failure)} were ever admitted for heart failure. People ever admitted for pneumonia had a mean (median) \Sexpr{num(means$pneumonia)} (\Sexpr{num(medians$pneumonia)}) pneumonia admissions, heart failure patients had a mean (median) \Sexpr{num(means$heart_failure)} (\Sexpr{num(medians$heart_failure)}) heart failure admissions, and AMI patients had a mean (median) \Sexpr{num(means$ami)} (\Sexpr{num(medians$ami)}) AMI admissions. In total, we analyzed \Sexpr{num(n$pneumonia)} pneumonia discharges, \Sexpr{num(n$ami)} AMI discharges, and \Sexpr{num(n$heart_failure)} heart failure discharges.
 
+% The accuracy of random forest.
+% The types of variables that were important for both g and Q.
+The accuracy of the random forest (for both models $g$ and $Q$) did not appear to improve significantly beyond 125 trees (see figure \ref{fig:error_rate_for_hospital_choice} in the appendix). In figure \ref{fig:variable_importance_by_model_and_class} we plot the importance of variables (as measured by the Gini coefficient) in the random forest models for four variable classes, for all disease subsets for both the $g$ and $Q$ model. Although census tracts were found to be important in prediction of hospital choice,  the other three variable classes were had a high density of important variables as well. The prescription drugs in particular had a high proportion of important variables, and generally the lowest proportion of unimportant variables. For the Q model, the variable density appeared bimodal within variable importance for all four variable classes. Additionally, the pre-admission drug prescriptions appeared to be strongly important in predicting readmission for all pneumonia, heart failure, and AMI admissions.
+
+% The distribution of g
+The predicted probability of admission to any particular hospital ($g=Pr(A=a|W)$) was less than 5\% in 88\% of cases (across all disease subsets and hosptials).  We set $\delta$ (the lower bound of $g$ when used to fit the $\epsilon$ values for $Q*$), to two different values, $10^{-2}$ and $10^{-2.5}$. Across all disease subsets and hospitals, 39\% of discharge/hospital combinations and a $g$ less than $10^{-2}$, and 4\% had a $g$ less than $10^{-2.5}$. Figure \ref{fig:dist_g_zoomed} (in the Appendix) describes the histogram of $g$ when it is below 0.05 for each disease/hospital combination separately. 
+
+% The tables
+% The in hospital death rates
+% The crude model.
+% The TMLE models.
+The unadjusted proportion of patients readmitted in 30 days varied across hospitals for each disease subset (Tables 1-3). The linear correlation between the proportion of deaths during hospital stay and the proprtion readmitted was (\Sexpr{round(death.and.readmissions.cor[c('ami','heart_failure','pneumonia')],2)}) among AMI, heart failure, and pneumonia admissions respectively. Using a model that adjusts for a few well-known confounders, for AMI, heart failure, and pneumonia respectively, one, three, and five hospitals had significantly different odds than the reference hospital. Notably, the significant odds ratios are all relatively small, with point estimates ranging from 0.92 - 1.04. In contrast, in the TMLE models, at both values of $\delta$, for all admission diagnoses, nearly all of the hospitals had significantly different odds than the reference hospital.
+
+% Effect of delta
+In some hospitals and disease subsets, the parameter $\delta$, (the lower bound on the probability of exposure $g(A|W)$) had a considerable effect on the marginal risk and the associated odds ratios. For example, for AMI (shown in Table 1), the marginal risk for hospital 17 increases by six percent when $\delta$ decreases from $10^{-2}$ to $10^{-2.5}$. In figure \ref{fig:effect_of_gbound}, we display the marginal risk for each of the twenty hospitals and disease subsets as a function of the parameter $\delta$. For many hospitals, the effect was quite strong; for pneumonia admissions, hospital 16 went from having the second-lowest marginal risk when $\delta=0.1$ to having the highest marginal risk when $\delta=0.025$. 
 
 
-% 30-day readmission
-The unadjusted proportion of patients readmitted in 30 days varied across hospitals for each disease subset (Tables 1-3). Using a model that adjusts for a few well-known confounders, for AMI, heart failure, and pneumonia respectively, one, three, and five hospitals had significantly different odds than the reference hospital. Notably, the significant odds ratios (a relative scale) are all relatively small, with point estimates ranging from 0.92 - 1.04. For all admissions disease subsets, the TMLE-estimated marginal risk for 30-day readmission was constant across hospitals.
-
-% Time-to-readmission
-The hazard ratios estimated from the Cox proportional hazard model adjusting for a few confounders were often significant, but did not generally agree, in either direction or scale, with when you compare the TMLE-estimated times-to-readmission with the same reference hospital. In Figure 3, we plotted the density of the TMLE-estimated marginal days-to-readmission, for those who were estimated to have less than 60 days to readmission. Nearly all densities exhibited a bimodal structure. Nearly all disease subsets and hospitals exhibited a bimodal structure in this density,
-
-
-
-% What does the accuracy of the random forest model look like as the number of trees grows for both the Q model and the G model?
-\begin{figure}[H]
-    \includegraphics{../figures/error_rate_for_hospital_choice.png}
-    \caption[Error rate for random forest model of hospital choice.]
-      {Error rate for both random forest models of hospital choice ($g$) and readmission ($Q$) as a function of the number of trees grown. For each admission, only out-of-bag trees were used to predict the given outcome.}
-    \label{fig:error_rate_for_hospital_choice}
-\end{figure}
-
+% Variable importance.
 \begin{figure}[H]
     \includegraphics{../figures/variable_importance_by_model_and_class.png}
     \caption[Error rate for random forest model of hospital choice.]
-      {Variable importance by model and variable class. A descriptive sentence.}
-    \label{fig:variable_importance_by_model_and_class}
+{Variable importance by model and variable class. For each random forest classifier, the variable importance was measured by the decrease in the Gini coefficient when that variable splits a node. The horizontal axis within each panel is displayed on a $log_e$ scale. Some variables had exactly zero importance; to avoid evaluating the logarithm of zero, we added a small constant ($e^{-12}$) to the measure of variable importance. The vertical axis in each panel represents the variable density at the corresponding level of variable importance. To transform the individual variable importances into a continuous density, we smoothed using a Gaussian kernel density estimator, using Silverman's 'rule-of-thumb' \supercite{silverman_density_1986} to select the bandwidth. The density is measured separately for each class; the area under each variable class curve is exactly one.
+}
+   \label{fig:variable_importance_by_model_and_class}
 \end{figure}
 
-
-% How important are the different variables for each model by class?
-\begin{figure}[H]
-    \centerline{
-      \includegraphics{../figures/tte_distribution.png}
-    }
-    \caption[Marginal days-to-readmission.]
-      {Marginal days-to-readmission.}
-    \label{fig:marginal_days_to_readmission}
-\end{figure}
-
-
-
-% What are the most important variables?
-
-% Some tables.
+% Table code.
 \begin{landscape}
 
 \setmainfont[Scale=1]{Cambria}
@@ -280,6 +235,7 @@ load(file='~/repo/thesis/code/tmle/tables/disease.results.table.object') # disea
 
 diseases <- c('ami','heart_failure','pneumonia')
 pretty_names <- c(ami='Acute myocardial infarction (AMI)', heart_failure='Heart failure', pneumonia='Pneumonia')
+pretty_names_lower <- c(ami='acute myocardial infarction (AMI)', heart_failure='heart failure', pneumonia='pneumonia')
 
 ci.format <- function(x){
   baseline <- which(apply(x,1,function(x) all(is.na(x))))
@@ -292,122 +248,198 @@ ci.format <- function(x){
 for (disease in diseases){
   table<-disease.results.table[[disease]]
   odds <- ci.format(table[c('odds.ratio','odds.ratio.ci.low','odds.ratio.ci.high')])
-  hazards <- ci.format(table[c('hazard.ratio','hazard.ratio.ci.low','hazard.ratio.ci.high')])
+  
+  tmle.odds <- do.call(cbind,lapply(which(colnames(table)=='or',), function(x) 
+    data.frame(tmle.odds=ci.format(table[x:(x+2)]),Q.star=table[,x+3])))
 
-  tte <- do.call(paste0, list(round(table$mean.tte),' (',round(table$median.tte),')'))
-
-  pre.format <- cbind(table[c('admitted','died','died.prop','live.discharge','readmitted','prop')],odds=odds,Q.star=table$Q.star,hazards=hazards,tte=tte)
+  pre.format <- data.frame(table[c('admitted',
+                              'died',
+                              'died.prop',
+                              'live.discharge',
+                              'readmitted',
+                              'prop')],
+                      odds=odds,
+                      crude.marginal=table$marginal.risk,
+                      tmle.odds,
+                      check.names=FALSE
+                      )
 
   num.cols <- sapply(pre.format,is.numeric)
   pre.format[num.cols] <- round(pre.format[num.cols],2)
 
-
-
+  pre.format$died <- paste0(pre.format$died," (",pre.format$died.prop*100,")")
+  pre.format$died.prop <- NULL
+  pre.format$readmitted <- paste0(pre.format$readmitted," (",pre.format$prop*100,")")
+  pre.format$prop <- NULL
+  
   colnames(pre.format)<-c(admitted='Admitted',
-                          died='Died',
-                          died.prop='(\\%)',
+                          died='Died\n(\\%)',
                           live.discharge='Discharged',
-#                      overall.los='Admitted',
-#                      died.los='Died',
-#                      survived.los='Discharged',
-                         readmitted='Readmitted\n(30-day)',
-                         prop='(\\%)',
-                         odds='Odds Ratio\n(95\\% CI)',
-                         hazards='Hazard Ratio\n(95\\% CI)',
-#                      Q='Q',
-#                      epsilon='ε',
-                         Q.star='Marginal risk',
-                         tte='Marginal mean TTE\n(median)'
+                          readmitted='Readmitted\n(\\%)',
+                          prop='',
+                          odds='Odds ratio\n(95\\% CI)',
+                          crude.marginal='Marginal\nrisk',
+                          tmle.odds='Odds ratio\n(95\\% CI)',
+                          Q.star='Marginal\nrisk'
                         ) [colnames(pre.format)]
   rownames(pre.format) <- NULL
 
+  tmle.colnames <- paste0("TMLE ($\\delta=10^{", c(-2,-2.5),"}$)")
+
+  caption.text = "The proportion of those who were readmitted within 30 days is caluculated using the number discharged alive as the denominator. The confidence intervals for the odds ratios for the parameters in the logistic regression model were calculated using the profile likelihood method. The marginal risk for the odds ratios was calculated by using the regression model to calculate the mean predicted probability of readmission for every admission, except individually fixing the hospital attended to one hospital. The parameter $\\delta$ represents the lower bound on the probability of exposure to that hospital ($g$); we display odds ratios and marginal risks for two versions of the TMLE model with varying levels of $\\delta$ ." 
+  
+  caption.text.see.other.table = paste0("The columns in this table are described in Table \\ref{",paste(diseases[1], 'table', sep='_'),"}.")
+  
+    
   latex(pre.format, file='',
         col.just = rep('r',10),
-        cgroup = c("", "30-day readmission", "Time-to-readmission"),
-        n.cgroup = c(6,2,2),
-        rowlabel = "Hospital",
+        cgroup = c("", "Logistic regression", tmle.colnames),
+        n.cgroup = c(4,2,rep(2,length(tmle.colnames))),
+        rowlabel = "Hsp.",
         caption.loc = "bottom",
-        caption = pretty_names[disease],
+        caption = paste('Risk of 30-day readmission after admission for ',pretty_names_lower[disease],' in twenty Montreal hospitals. ',ifelse(disease==diseases[1], caption.text, caption.text.see.other.table)),
         label = paste(disease, 'table', sep='_')
         )
 }
 @
-
 \end{landscape}
-\section{Discussion}
-% The introduction
-In this study, we estimated marginal risk of 30-day readmission adjusted for patient readmission risk in twenty Montreal hospitals, and found that the marginal risk differences were not as strong as the crudely estimated readmission risk suggested.
 
-In this study, we estimated the marginal risk of 30-day readmission and the mean time-to-readmission with machine learning techniques (random forest) and doubly-robust parameter estimation (TMLE) in twenty hospitals in Montreal.
+\begin{figure}[H]
+    \centerline{
+      \includegraphics{../figures/effect_of_gbound.png}
+    }
+    \caption[Effect of $\delta$ (the bound on $g(A|W)$) on the marginal risk.]
+      {Effect of $\delta$ (the bound on $g(A|W)$) on the marginal risk ($Q^*$). The vertical axis represents the marginal risk as calculated by the TMLE model. The marginal risk ($Q^*$) was evaluated at 31 levels of $\delta$, from $10^{-1}$ to $10^{-5}$, (the exponent decreasing by 0.1). Note that the scale of the horizontal axis decreases from left-to-right. The hatched vertical lines mark the two levels of delta displayed in tables \ref{ami_table},\ref{heart_failure_table} and \ref{pneumonia_table}.}
+    \label{fig:effect_of_gbound}
+\end{figure}
+
+\section{Discussion}
+Using targeted maximum likelihood estimation (TMLE) to adjust precisely for measured confounders, we found that the differences in marginal risk of 30-day hospital readmission in twenty Montreal hospitals were much stronger than a model that only crudely adjusted for confounding readmission risk suggested. Additionally, our study revealed some practical positivity violations for some hospitals, suggesting that the relative readmission risk may not always be estimaable from observed data.
+
+% Our study had several strengths: doubly robust, fine adjustment for confounding, lots of confounders (especially drugs whcih were important) were measured.
+Our study have several strengths.
+
+By using a machine learning technique (random forest) to adjust accurately for confounding, and a doubly-robust technique to estimate the parameters (TMLE), we could estimate less biased estimates 
+
+% We had a large cohort from all socioeconomic classes. We did not have to restrict to a single network in a city. The same covariates were measured across all hospitals. We could track if they went to "any" hospital in the province, which is expected to be the vast majority of visits.
+
+Our work suggests that the difference between the approaches is not only a practical one; in assessing the effect of hospitals on readmission, it has a substantive effect as well.
+
+% How does this compare to previous research?
+% Nobody has applied TMLE before.
+Some other studies have applied machine learning algorithms to readmission data to develop predictive models, including one using the data used in this study. No study to our knowledge has used machine learning algorithms to infer target parameters. 
+
+Some authors  have suggested that 
+
+Our study demonstrates that this is not the case; despite a weak predictive accuracy, we can still draw inference on target parameters.
+
 
 % On the preventability of readmissions.
+% Kansagara
+% Clarke 1990 also believes that you must directly measure whether each readmission was preventable.
+Some authors \supercite{kansagara_risk_2011} claim that by using readmission rates as a quality metric, we assume that readmissions are both preventable and related to poor quality care. 
+% Joynt and Jha argued that most readmissions are not preventable.
+Some authors \supercite{joynt_thirty-day_2012} have also claimed that most readmissions are not preventable.
+
+Typically, people try to identify whether individual readmissions are preventable.
+
+In this study, we define a preventable readmission as one that would not have occured if the patient was treated at a different hospital (the unobservable counterfactual). 
+
+To estimate this parameter, it is unnecessary to identify whether individual readmissions were preventable, or to identify the mechanism of readmission; we need only to measure the readmission rate at a population level, and adjust for confounding.
+
 Several readmission risk models have been criticized on the basis that they failed to distinguish preventable readmissions from readmissions due to chance alone. Despite evidence that clincians cannot reliably distinguish preventable and non-preventable readmissions, pairs of diagnosis codes have been developed that are "potentially preventable". For example, following a hospitalization for surgery, a readmission for infection would be considered preventable, but a readmission for trauma would not.
 
 We did not atempt to measure whether \emph{individual} readmissions were preventable, we instead opted to place readmissions within a counterfactual framework, and only identify the difference in readmission risk between hospitals, after controlling for differences in case-mix.
 
-% Small odds ratios aren't meaningless.
-Because readmissions are relatively common, a small difference on a relative scale can imply a large difference on an absolute scale.
-
-
 % How does this relate to the counterfactual statement?
 The counterfactual model clarifies the study question: What is the difference in the proportion with an emergency readmission within 30 days if all patients had attended Hospital A vs Hospital B? The notion of a "preventable" readmission is implicit; if a patient would have been readmitted if treated at another hospital, then the readmission was preventable. Since we cannot directly observe the desired proportions, we estimate it by attempting to recreate exchangeability (control for confounding) among the populations that visited different hospitals.
+
+% But, first, it is difficult to directly infer whether a readmission was preventable or not.
+% Second, it is more clear to define preventability in terms of the counterfactual (would he have been readmitted if he attended another hospital). If so, that readmission was preventable.
+% If we effectively adjust for confoudning, we can estimate the population parameter associated with preventable admissions.
+
+% End preventability.
+
+
+% Many people have attempted to calculate the predictive accuracy of models.
+%  Some within those have used machine learning techniques.
+% Fisher compared readmission rates among Medicare beneficiaries to two Boston area hospitals, controlling for confounding using Charlson comorbidites, and found significant risk differences. 
+
+% Jencks compared rehospitalizations among areas, but not directly among hospitals.
+
+% Sensitivity to the gbound / A practical positivity violation.
+Our results were sensitive to the bounding parameter; the more precise we allowed the $g$ model to be, the more divergent the odds ratios. 
+
+This suggests a practical positivity violation; some hospitals may not be admitting certain types of patients with high readmission risk, making it difficult to estimate what the risk of those patients would be if they had attended that hospital. 
+
+We can either bound the probability predicted by g, or we can use the probabilities directly. If we use the probabilities directly, then the pseudopopulations created for certain hospitals will be dominated by patients with very low probability of attending that hospital. Since a probability of 0.0001 is not uncommon, that person would count for 100 times the weight of a person with only a 0.01 probability of attending that hospital. 
+
+Unfortunately, our model for g is simply not likely to be that precise: a very small absolute difference in probability will make a big difference in the pseudopopulation. However, this only strengthens the argument that we need very well calibrated and accurate predictive models of g to estimate the parameter of interest. Machine learning models like random forest are best suited to do that.
+
+Additionally, it is good that we identify these positivity violations. It may be the case that certain groups of hospitals are simply not comparable, because the patient populations they receive have such varying risk. 
+% End positivity violations.
+
+
+% Small odds ratios aren't meaningless.
+% The absolute risk difference is low, leading to a low marginal difference in the number readmitted between hospitals. Consider, however, that in all exposure/outcome analyses where the outcome is rare, and the exposure relatively balanced, the expected absolute difference will likely be small.
+Because readmissions are relatively common, a small difference on a relative scale can imply a large difference on an absolute scale.
 
 % No mediators.
 Following other hospital readmission work, we did not include hospital length of stay as a risk factor for readmission. Although we have strong reason to believe that the length of stay may affect readmission risk (and varies between hospitals), it acts as a mediator between hospital care and readmission; if we included it in our models, we risk biasing our estimate of the hospital's effect on readmission. However, unlike many other hospital readmission studies, we also excluded all diagnoses and procedures that occurred during the hospital admission, because these covariates were also effectively mediators between hospital care and readmission. For example, hospital-acquired infections are one source of preventable readmissions; if we controlled for diagnosis codes indicating hospital-acquired infections, we would attenuate the effect that the hospital care was having on readmissions.
 
 % Competing risks.
-The major competing risk for hospital readmission is death, but others include moving outside the study area, or admission to a hospital for a non-emergency reason. In our 30-day readmission risk analysis, these effects were essentially ignored, but in the TMLE survival analysis we modeled the probability of right censorship.If patients died within 30 days of discharge more often at one hospital than another, we could have biased our estimate of readmission risk. Similarly, if patients died during the hospitalization more often at some hospitals than others, it could have created a selection bias (left censorhsip) in which hospitals with better care were discharging sicker (but still living) patients, who would be more likely to be readmitted. This effect could have biased both of our results.
-
-% 30-day problem
-There is no special significance of 30 days in readmission, except for the fact that it is (recently) widely used as a cutoff. Interestingly, the distribution of expected survival times in the first sixty days appears to be bimodal (although some hospitals did not display this property), but the "dip" between the modes occurs a little earlier, roughly around day 20. These two modes suggest sharp changes in the conditional failure probability, which may reflect differing mechanisms of hospital's effect on readmission.
+The major competing risk for hospital readmission is death, but others include moving outside the study area, or admission to a hospital for a non-emergency reason. In our analysis, we did not account for these competing risks. If patients died within 30 days of discharge more often at one hospital than another, we could have biased our estimate of readmission risk. Similarly, if patients died during the hospitalization more often at some hospitals than others, it could have created a selection bias (left censorship) in which hospitals with better care were discharging sicker (but still living) patients, who would be more likely to be readmitted. Also, there is no special significance of 30 days in readmission, except for the fact that it is (recently) widely used as a cutoff. In future work, we plan to account for both left censorship and competing risks in a model that estimates the effect of hospital care on time-to-readmission.
 
 % Readmission isn't always a bad thing. Maybe the probability of admission has changed.
-Differing \emph{admission} practices can strongly affect the rates of readmission. Since most  (\Sexpr{round(readmitted.to.same.hosp,2)*100}\% in this cohort) patients who are readmitted within 30 days are readmitted to the same hospital that they were discharged from, if a hospital is more likely to admit patients than others, it will have a higher readmission rate. In some cases, like a major trauma, admission is certain, and in other cases, like a mild infection, admission is very improbable, but in most cases, there is some uncertainty in how patients are admitted. In future work, we plan to study the effect of the probability of admission on readmission.
+Differing \emph{admission} practices can strongly affect the rates of readmission. Since most  (\Sexpr{round(readmitted.to.same.hosp,2)*100}\% in this cohort) patients who are readmitted within 30 days are readmitted to the same hospital that they were discharged from, a hospital that is more likely to admit patients will have a higher readmission rate. In some cases, like a major trauma, admission is certain, but in most cases, there is some variation in practice of how patients are admitted. In future work, we plan to study the effect of the probability of admission on readmission.
 
 % The influenza cohort.
-Entry to our cohort was dependent on having one diagnosis of a respiratory illness in an inpatient or outpatient setting. Respiratory illness was defined rather broadly, including extremely common diagnoses such as "cough". We expect that the the majority of 65-year old patients who would be hospitalized would have at least one respiratory illness diagnosis in an outpatient setting.
-
-Strictly speaking, however, we cannot generalize our results to the non-respiratory illness population.
+Entry to our cohort was dependent on having one diagnosis of a respiratory illness in an inpatient or outpatient setting. Respiratory illness was defined rather broadly, including extremely common diagnoses such as "cough". We expect that the the majority of 65-year old patients who would be hospitalized would have at least one respiratory illness diagnosis in an outpatient setting. We cannot, however, exclude the possibility that parameters were affected by selection bias with respect to the full population of 65 year old patients.
 
 % Using TMLE in general.
-Non-parametric techniques such as random forest don't allow us to look (easily) at the individual effects of the confounders. This is somewhat disconcerting; we would like to be able to identify if the confounders that we expect to have an effect on the outcome are having the expected effect. We summarized the densities of the effects a few classes of variables, but this still does not allow the fine-grained analysis typical in an epidemiologic study. Even in a semiparameteric model, such as the Cox model we used for the survival analysis where we could identify hazard ratios directly from the model, it is difficult to analyze hundreds of fitted parameters in a meaningful way.
+The effect of hospital care on readmissions is confounded by a vast spectrum of health-related states of the admitted patients. In the absence of a clear theoretical basis of the structure of that confounding, we can 1) identify relatively few, well-understood and measureable confounders to include in our model, or 2) forgo any theoretical understanding of the structure of confounding, and attempt to identify the broadest measureable set of even faintly plausible confounders.
 
-Hospital readmissions are confounded by a vast spectrum of health-related states; in the absence of a clear theoretical basis of the structure of that confounding, we have a few options. We can 1) identify relatively few, well-understood and measureable confounders to include in our model, or 2) forgo any theoretical understanding of the structure of confounding, and attempt to identify the broadest measureable set of even faintly plausible confounders.
+The first option has some advantages: in a situation where data collection is expensive, we it may not be plausible to measure thousands of variables. Additionally, by reducing the confounders to a well-understood few, the model gains credibility because it can be shown that the confounders are having the expected effect. Non-parametric techniques such as random forest don't allow us to look (easily) at the individual effects of the confounders, and even in a parametric model it would be difficult to analyze thousands of variables. We summarized the densities of the effects a few classes of variables in figure \ref{fig:variable_importance_by_model_and_class}, but this still does not allow the variable-by-variable analysis typical in an epidemiologic study. Also, by including many confounders we also risk \emph{inducing} bias, such as the M-bias.
 
-
-
-In the absence of a clear theoretical basis of the structure of the confounding, we have to choose among two broad appraoches. We can 1) ignore the complexity and include confounders that we understand well and can measure well or 2) forgo any theoretical understanding of the structure of confounding, and attempt to identify the broadest measureable set of confounders.
-
-Indeed, the first option has many advantages. In a situation where data collection is expensive, you want to choose the most efficient set of confounders. Additionally, by reducing the confounders to a well-understood few, your model gains credibility because you can show that the confounders are having the expected effect.
-
-In the second option we lose the ability assess the "face validity" of our model, and we also risk inducing bias (such as M-bias).
-
-However, the recent availability of large scale healthcare administrative data has put us into the situation where the second choice is at least possible; our data are no longer too expensive to collect. Additionally, because we have good reason to believe that readmission is confounded by a vast spectrum of health states, and because the structure of that confounding is poorly understood, we might as well use what we have.
-
-We argue that in this situation, where we have a large dataset, thousands of measureable confounders, and little understanding of the structure of confounding, the second option is more appropriate.
-
-Our work suggests that the difference between the approaches is not only a practical one; in assessing the effect of hospitals on readmission, it has a substantive effect as well.
-
-We argue that if a large number of covariates are to be used, we lose the ability to identify individual effects, so we might as well take advantage of non-parametric machine learning techniques.
+However, the recent availability of large scale healthcare administrative data has put us into the situation where the cost of data collection is relatively low. By using machine learning techniques like random forest, we also automatically fit multi-way interactions that we would be unlikely to explore in a model fit "by hand". Finally, because the structure of the confounding is unclear, we cannot assess M-bias is present. We argue that in this situation, where we have a large dataset, thousands of measureable confounders, and little understanding of the structure of confounding, the second option is more appropriate.
 
 % Differential misclassification due to coding practices.
+Despite a relatively standardized data collection process, some hospitals may have idiosyncratic code usage patterns, leading to differing specificity and sensitivity of some diagnostic and procedural codes. This possible differential misclassification could have biased our estimate of the parameters of interest.
 
-% We had a large cohort from all socioeconomic classes. We did not have to restrict to a single network in a city. The same covariates were measured across all hospitals. We could track if they went to "any" hospital in the province, which is expected to be the vast majority of visits.
+% Adjustment for multiple measurements.
+The unit of analysis in this study was the discharge, but each discharge was "clustered" within a patient. The expected within-cluster homogeneity could have biased our estimates of variance, and even our parameter estimates. However, because the number of clusters (unique patients) was relatively high when compared to the sample size (the number of discharges), we do not expect that our parameter or variance estimates to be biased very strongly.
 
-% We could have adjusted for the problem that a patient may be measured multiple times. In some sense, this could be considered a multiple measurement problem. But, the strata are going to be very small, and there will be many of them; the effect on variance may be very small, and the computation very difficult. It is also not exactly clear how you would do this.
-
-% The absolute risk difference is low, leading to a low marginal difference in the number readmitted between hospitals. Consider, however, that in all exposure/outcome analyses where the outcome is rare, and the exposure relatively balanced, the expected absolute difference will likely be small.
-
-% While it was totally possible to use SuperLearner (an ensemble learning technique), it was too computationally expensive; random forest is just one of the methods used in SuperLearner, and it was already very computationally expensive on these data.
+% Why random forest?
+Beside random forest, we could have used many other machine learning techniques on these data, many of which we explored in other work.  Also, some ensemble machine learning techinques, (in particular SuperLearner which is commonly used with TMLE), are available, that combine any number of other machine learning techniques. We found that in these data, ensemble learning techniques were too computationally expensive. We selected random forest because of its relative simplicity, and because our variables were nearly all binary, for which decision trees are particularly suitable.
 
 % Calibration
-Calibration of the random forest vote proportions in the Q model strongly affected estimates of our parameter of interest in the $Q^*$ update step. Other articles using non-parametric techniques typically combined them with other models in an ensemble learner (in particular SuperLearner has been often used with TMLE). The final step in the ensemble learner is to combine all the probability estimates in parametric model, which would effectively calibrate the probabilities. When a single, non-parametric technique is used, an additional, seperate calibration step is necessary to convert the ranking scores into a probability estimate.
+Calibration of the random forest vote proportions in the $Q$ model strongly affected estimates of our parameter of interest in the $Q^*$ update step. Other articles using non-parametric techniques typically combined them with other models in an ensemble learner (like SuperLearner). The final step in (many) ensemble learners is to combine all the probability estimates in parametric model, which would effectively calibrate the probabilities. In our study, a single, non-parametric technique was used, so an additional, seperate calibration step was necessary to convert the ranking scores into a probability estimate. 
 
-% What about the whole repeated measure / hierarchical model thing?
+% On the crudeness, Donabedian states:
+% "But how precise do estimates of quality have to be? At least the better methods have been adequate for the administrative and social policy purposes that have brought them into being. The search for perfection should not blind one to the fact that present techniques of evaluating quality, crude as they are, have revealed a range of quality from outstanding to deplorable."
 
 \printbibliography
 
 \section{Appendix}
+% What does the accuracy of the random forest model look like as the number of trees grows for both the Q model and the G model?
+\begin{figure}[H]
+    \includegraphics{../figures/error_rate_for_hospital_choice.png}
+    \caption[Error rate for random forest model of hospital choice.]
+      {Error rate for both random forest models of hospital choice ($g$) and readmission ($Q$) as a function of the number of trees grown. For each admission, only out-of-bag trees were used to predict the given outcome.}
+    \label{fig:error_rate_for_hospital_choice}
+\end{figure}
+
+
+% What does the accuracy of the random forest model look like as the number of trees grows for both the Q model and the G model?
+\begin{figure}[H]
+    \includegraphics{../figures/dist_g_zoomed.png}
+    \caption[Histogram of the probability of exposure (g), restricted to the range of (0,0.05). The bin width is 0.005. The dotted red lines indicate the two values of $\delta$ used in tables 1, 2, and 3.]
+      {Histogram of the probability of exposure (g), restricted to the range of (0,0.05). The bin width is 0.005. The dotted red lines indicate the two values of $\delta$ used in tables 1, 2, and 3.}
+    \label{fig:dist_g_zoomed}
+\end{figure}
+
+
+
 % Calibration of random forest
 % \begin{figure}[H]
 %     \includegraphics{../figures/rf_calibration.png}
