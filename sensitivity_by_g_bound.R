@@ -1,5 +1,6 @@
 suppressPackageStartupMessages(library(bigrf))
 suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(reshape2))
 
 prefixes <- list.files('disease_subsets')
 pretty.names<-c('AMI','Heart failure','Pneumonia')
