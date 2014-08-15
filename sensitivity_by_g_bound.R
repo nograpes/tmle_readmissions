@@ -74,9 +74,12 @@ p=ggplot(melted.g, aes(x=g)) +
   facet_grid(Hospital~disease) +
   scale_y_continuous(limits = c(0,400), breaks=c(0,300), name='Frequency') +
   # scale_x_continuous(limits = c(0,0.05), name='Probability of exposure g=Pr(A=a|W)')  +
-  scale_x_continuous(limits = c(0,0.05), name=expression(paste("Probability of exposure ",italic(" g=Pr(A=a|W)"))))  +
+  scale_x_continuous(limits = c(0, 0.05),
+                     breaks = seq(0,0.05,by=0.01),
+                     labels = c('0',as.character(seq(0.01,0.05,by=0.01))),
+                     name=expression(paste("Probability of exposure ",italic(" g=Pr(A=a|W)"))))  +
   geom_vline(xintercept = bounds, colour='red', lwd=0.5,lty=2) +
-  theme(text = element_text(family="Cambria"))
+  theme(text = element_text(family="Cambria",size=9.5))
 ggsave(filename='figures/dist_g_zoomed.png',p,
        width=(8.5-1), height=11-2,units="in",dpi=600)
 
