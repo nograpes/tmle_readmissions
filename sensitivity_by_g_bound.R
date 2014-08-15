@@ -33,11 +33,8 @@ file<-paste0('tables/', table.file, '.object')
 load(file)
 bounds <- sapply(bound.expression,eval)
 
-
-breaks=c(0.1,0.075,0.05,0.025,0)
-as.character(breaks)
-
 # Plot sensitivity analysis on bounds.
+breaks=c(0.1,0.075,0.05,0.025,0)
 p=ggplot(melted.s, aes(x=delta, y=Q.star, colour=Hospital)) + 
   scale_x_reverse(name='δ', breaks=breaks, labels=as.character(breaks)) +
   geom_line() + facet_wrap(~disease) +
@@ -70,12 +67,15 @@ binwidth = c(zoomed=0.0005, full=0.0005)
 #        width=(8.5-1), height=11-2,units="in",dpi=600)  
 
 # Zoomed 
+
 p=ggplot(melted.g, aes(x=g)) + 
   geom_bar(binwidth=binwidth['zoomed']) +
   facet_grid(Hospital~disease) + 
-  scale_y_continuous(limits = c(0,400), name='Count') +
-  scale_x_continuous(limits = c(0,0.05), name='Probability of exposure g=Pr(A=a|W)')  + 
-  geom_vline(xintercept = bounds, colour='red', lwd=0.5,lty=2)
+  scale_y_continuous(limits = c(0,400), breaks=c(0,300), name='Frequency') +
+  # scale_x_continuous(limits = c(0,0.05), name='Probability of exposure g=Pr(A=a|W)')  + 
+  scale_x_continuous(limits = c(0,0.05), name=expression(paste("Probability of exposure ",italic(" g=Pr(A=a|W)"))))=a|W)')  +   + 
+  geom_vline(xintercept = bounds, colour='red', lwd=0.5,lty=2) + 
+  theme(text = element_text(family="Cambria"))
 ggsave(filename='figures/dist_g_zoomed.png',p,
        width=(8.5-1), height=11-2,units="in",dpi=600)  
 
