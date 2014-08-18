@@ -6,7 +6,9 @@ I am currently developing this code in preparation for a manuscript. Indeed, the
 Guide for reproducibility
 -------------------------
 
-Although I can provide a full guide on how to reproduce this paper, it won't be of much help because I can't feasibly include the data.
+Eventually, I will provide a guide on how to reproduce this paper, but I can't include the data.
+
+For now, you can take a look inside a fairly complicated Makefile to understand how everything goes together. The code for the "main" statistical analysis are contained within build_rf_Q_star_model.R.
 
 A pretty picture
 ----------------
