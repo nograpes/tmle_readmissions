@@ -16,12 +16,9 @@ coefs.by.iteration <- mclapply(90:100, function(x) suppressWarnings(coef(glm(Y ~
 r<-do.call(rbind,coefs.by.iteration)
 fixed.coefs<-r[11,]
 
-flip<-r[10,"Hôpital.Charles.Lemoyne"]
-flop<-r[11,"Hôpital.Charles.Lemoyne"]
 
 eval.points<-seq(min(flip,flop) - abs(flip-flop),max(flip,flop) + abs(flip-flop),by=abs(flip-flop)/100)
 
-# It's Charles Lemoyne that is all flippy floppy.
 likelihood<-function(beta) {
   betas<-fixed.coefs
   betas["Hôpital.Charles.Lemoyne"]<-beta
