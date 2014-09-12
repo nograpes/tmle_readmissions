@@ -177,7 +177,7 @@ When the probability of exposure $g(A|W)$ is very low, that discharge would rece
 Finally, we compared our results of our analysis with a logistic regression for 30-day readmission. In this model, we included only the age, sex, number of previous admissions, and the Charlson comorbidity score (Elixhauser version)\supercite{elixhauser_comorbidity_1998}, along with indicator variables representing the hospitals themselves.
 
 \subsection{Software}
-The data were cleaned and prepared for statistical analysis using the Postgres relational database (version 9.2.6). We implemented our models using the R statistical package (version 3.1.1),\supercite{team_r:_2014} using the "bigrf" package (version 0.1.11) to grow the random forests.\supercite{lim_bigrf:_2014} We plotted our figures using the "ggplot2" package (version 1.0.0) .\supercite{wickham_ggplot2:_2009} All the code to develop used to process our data, fit our models, and typeset this article is \href{https://github.com/nograpes/tmle_readmissions}{available for download at Github}.
+The data were cleaned and prepared for statistical analysis using the Postgres relational database (version 9.3.5). We implemented our models using the R statistical package (version 3.1.1),\supercite{team_r:_2014} using the "bigrf" package (version 0.1.11) to grow the random forests.\supercite{lim_bigrf:_2014} We plotted our figures using the "ggplot2" package (version 1.0.0) .\supercite{wickham_ggplot2:_2009} All the code to develop used to process our data, fit our models, and typeset this article is \href{https://github.com/nograpes/tmle_readmissions}{available for download at Github}.
 
 \section{Results}
 
